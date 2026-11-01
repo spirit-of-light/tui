@@ -74,6 +74,12 @@ func TestRunReturnsOnClientDisconnect(t *testing.T) {
 // client; resolve is consulted before every tool call, like the app's config.
 func runServer(t *testing.T, resolve func() (backend.Target, error)) *sdk.ClientSession {
 	t.Helper()
+	return runServerWith(t, backend.Options{}, resolve)
+}
+
+// runServerWith is runServer with the options the backend opens under.
+func runServerWith(t *testing.T, opts backend.Options, resolve func() (backend.Target, error)) *sdk.ClientSession {
+	t.Helper()
 	t.Setenv("ZENNOTES_CONFIG_DIR", t.TempDir())
 	ctx, cancel := context.WithCancel(context.Background())
 	serverT, clientT := sdk.NewInMemoryTransports()
@@ -82,7 +88,7 @@ func runServer(t *testing.T, resolve func() (backend.Target, error)) *sdk.Client
 		defer close(done)
 		_ = Run(ctx, Options{
 			ResolveTarget: resolve,
-			OpenBackend:   func(t backend.Target) (Backend, error) { return backend.New(t, backend.Options{}) },
+			OpenBackend:   func(t backend.Target) (Backend, error) { return backend.New(t, opts) },
 			Transport:     serverT,
 		})
 	}()

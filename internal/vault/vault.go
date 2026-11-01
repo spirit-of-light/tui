@@ -31,6 +31,12 @@ type Vault struct {
 	// SyncTitleHeading rewrites a note's leading `# Heading` on rename, the
 	// desktop's "Sync title heading on rename" preference. On by default.
 	SyncTitleHeading bool
+
+	// WeekStart is the first day of the week for repeat rules counted in
+	// weeks. Monday by default.
+	WeekStart time.Weekday
+	// Now is the clock the task toggles read; nil means time.Now.
+	Now func() time.Time
 }
 
 // Open binds a Vault to an existing directory.
@@ -46,7 +52,15 @@ func Open(root string) (*Vault, error) {
 	if !info.IsDir() {
 		return nil, fmt.Errorf("not a directory: %s", abs)
 	}
-	return &Vault{root: abs, fileMode: 0o644, dirMode: 0o755, SyncTitleHeading: true}, nil
+	return &Vault{root: abs, fileMode: 0o644, dirMode: 0o755, SyncTitleHeading: true, WeekStart: time.Monday}, nil
+}
+
+// now is the current time on the vault's clock.
+func (v *Vault) now() time.Time {
+	if v.Now != nil {
+		return v.Now()
+	}
+	return time.Now()
 }
 
 // Root is the absolute vault directory.
@@ -1068,6 +1082,9 @@ func (v *Vault) ScanTasksForPath(rel string, opts ParseTasksOptions) ([]Task, er
 
 // ToggleTask flips the task named by a stable id, counted in the given
 // grammar. Exclusion-blind on purpose: an explicit id is an explicit ask.
+// A repeating task rolls: its next occurrence is inserted above it, and the
+// task returned is the ticked one at its shifted index. The remote backend
+// toggles plainly instead.
 // Returns (nil, nil) when the id no longer matches a task.
 func (v *Vault) ToggleTask(taskID string, dialect TaskDialect) (*Task, error) {
 	rel, indexStr, err := SplitTaskID(taskID)
@@ -1086,11 +1103,11 @@ func (v *Vault) ToggleTask(taskID string, dialect TaskDialect) (*Task, error) {
 	title := strings.TrimSuffix(filepath.Base(abs), filepath.Ext(abs))
 	opts := ParseTasksOptions{IncludeExcluded: true, Dialect: dialect}
 	if indexStr == "task" {
-		current, found := parseTaskFile(relPosix, title, folder, strings.ReplaceAll(string(body), "\r\n", "\n"), dialect)
+		_, found := parseTaskFile(relPosix, title, folder, strings.ReplaceAll(string(body), "\r\n", "\n"), dialect)
 		if !found {
 			return nil, nil
 		}
-		next := ToggleFileTaskInBody(string(body), current.Checked, time.Now())
+		next, _ := RollTaskFileInBody(string(body), RollComplete, v.now(), v.WeekStart)
 		if _, err := v.WriteNote(relPosix, next); err != nil {
 			return nil, err
 		}
@@ -1105,7 +1122,7 @@ func (v *Vault) ToggleTask(taskID string, dialect TaskDialect) (*Task, error) {
 	if err != nil {
 		return nil, err
 	}
-	next, found := ToggleTaskInBody(string(body), targetIndex, dialect)
+	next, inserted, found := RollTaskInBody(string(body), targetIndex, dialect, RollComplete, v.now(), v.WeekStart)
 	if !found {
 		return nil, nil
 	}
@@ -1113,7 +1130,7 @@ func (v *Vault) ToggleTask(taskID string, dialect TaskDialect) (*Task, error) {
 		return nil, err
 	}
 	for _, t := range ParseTasks(relPosix, title, folder, next, opts) {
-		if t.Kind == "" && t.TaskIndex == targetIndex {
+		if t.Kind == "" && t.TaskIndex == targetIndex+inserted {
 			return &t, nil
 		}
 	}
