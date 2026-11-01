@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -136,7 +137,33 @@ func (a *App) editorHooks(buf *noteBuffer) vim.Hooks {
 			buf.saveAt = time.Now().Add(autosaveDelay)
 			a.armAutosave()
 		},
+		CompleteCheckbox: func(text string, line int) (string, bool) {
+			return a.completeCheckboxText(buf, text, line)
+		},
 	}
+}
+
+// completeCheckboxText ticks the checkbox on line (0-based) of a note buffer's
+// text, writing the next occurrence of a repeating task above it. ok is false
+// when nothing would be inserted, a task that does not repeat and any remote
+// target included, so the editor keeps its plain tick.
+func (a *App) completeCheckboxText(buf *noteBuffer, text string, line int) (string, bool) {
+	if !a.rollsRepeatingTasks() {
+		return "", false
+	}
+	title := strings.TrimSuffix(filepath.Base(buf.path), ".md")
+	tasks := vault.ParseTasks(buf.path, title, "", text, vault.ParseTasksOptions{IncludeExcluded: true, Dialect: vault.DialectApp})
+	for _, t := range tasks {
+		if t.Kind != "" || t.LineNumber != line {
+			continue
+		}
+		next, inserted, ok := vault.RollTaskInBody(text, t.TaskIndex, vault.DialectApp, vault.RollComplete, a.taskClock(), a.taskWeekStart())
+		if !ok || inserted == 0 {
+			return "", false
+		}
+		return next, true
+	}
+	return "", false
 }
 
 // editorLineRows is how many rows a line takes in the pane showing it.
