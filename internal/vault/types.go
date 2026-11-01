@@ -121,16 +121,21 @@ type Task struct {
 	// Forwarded is a `[>]` record: the task moved to another note.
 	Forwarded bool   `json:"forwarded"`
 	Due       string `json:"due,omitempty"`
-	Priority  string `json:"priority,omitempty"`
-	Waiting   bool   `json:"waiting"`
+	// DueTime is the `HH:MM` of a `due:2026-11-03T14:00` value, empty when the
+	// due date carries no valid time. Due itself stays date-only.
+	DueTime  string `json:"dueTime,omitempty"`
+	Priority string `json:"priority,omitempty"`
+	Waiting  bool   `json:"waiting"`
 	// Fields holds inline `@key:value` tokens (lower-cased), the note's
 	// frontmatter `status:` folded in. Any key can drive a Kanban board.
 	Fields map[string]string `json:"fields,omitempty"`
 	Status string            `json:"status,omitempty"`
 	Tags   []string          `json:"tags"`
 	// Kind is "file" for a whole-note task; empty means an inline checkbox.
-	Kind          string `json:"kind,omitempty"`
-	Scheduled     string `json:"scheduled,omitempty"`
+	Kind      string `json:"kind,omitempty"`
+	Scheduled string `json:"scheduled,omitempty"`
+	// ScheduledTime is the `HH:MM` of a timed `scheduled:` value.
+	ScheduledTime string `json:"scheduledTime,omitempty"`
 	CompletedDate string `json:"completedDate,omitempty"`
 	// DueInferred marks a due date derived from the containing daily note
 	// rather than written on the line. Set by the TUI, never by a scan.
@@ -223,6 +228,7 @@ func (t Task) MarshalJSON() ([]byte, error) {
 		InProgress    bool              `json:"inProgress"`
 		Forwarded     *bool             `json:"forwarded,omitempty"`
 		Due           string            `json:"due,omitempty"`
+		DueTime       string            `json:"dueTime,omitempty"`
 		Priority      string            `json:"priority,omitempty"`
 		Waiting       bool              `json:"waiting"`
 		Fields        map[string]string `json:"fields,omitempty"`
@@ -230,6 +236,7 @@ func (t Task) MarshalJSON() ([]byte, error) {
 		Tags          []string          `json:"tags"`
 		Kind          string            `json:"kind,omitempty"`
 		Scheduled     string            `json:"scheduled,omitempty"`
+		ScheduledTime string            `json:"scheduledTime,omitempty"`
 		CompletedDate string            `json:"completedDate,omitempty"`
 		DueInferred   bool              `json:"dueInferred,omitempty"`
 	}
@@ -238,7 +245,7 @@ func (t Task) MarshalJSON() ([]byte, error) {
 		LineNumber: t.LineNumber, TaskIndex: t.TaskIndex, RawText: t.RawText, Content: t.Content,
 		Checked: t.Checked, Cancelled: t.Cancelled, InProgress: t.InProgress, Due: t.Due, Priority: t.Priority,
 		Waiting: t.Waiting, Fields: t.Fields, Status: t.Status, Tags: t.Tags, Kind: t.Kind,
-		Scheduled: t.Scheduled, CompletedDate: t.CompletedDate, DueInferred: t.DueInferred,
+		DueTime: t.DueTime, Scheduled: t.Scheduled, ScheduledTime: t.ScheduledTime, CompletedDate: t.CompletedDate, DueInferred: t.DueInferred,
 	}
 	if t.Kind != "file" {
 		forwarded := t.Forwarded
