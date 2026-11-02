@@ -211,8 +211,19 @@ const DefaultInstructions = "You are connected to a user's ZenNotes vault: plain
 	"(`#important`, `#hard`). When unsure, omit.\n" +
 	"\n" +
 	"**Tasks**: GitHub-flavored `- [ ]` with optional\n" +
-	"`due:YYYY-MM-DD`, `!high` / `!med` / `!low`, `@waiting`, and\n" +
-	"`#tag`.\n" +
+	"`due:YYYY-MM-DD[THH:MM]`, `scheduled:YYYY-MM-DD[THH:MM]`,\n" +
+	"`!high` / `!med` / `!low`, `@waiting`, and `#tag`. The time is a\n" +
+	"24-hour `HH:MM`; one that is not is ignored and the date stays.\n" +
+	"An open task scheduled for today or earlier is listed under Today.\n" +
+	"A task may repeat: `repeat:1d`, `2w`, `3m`, `1q`, `1y`, `weekdays`,\n" +
+	"`mon,thu`, `2w:mon,thu`, `1m:15`, `1m:start`, `1m:end`, `1m:2-tue`,\n" +
+	"`1m:last-fri`, `1q:start`, `1q:end`, `1y:03-14`; a trailing `/done`\n" +
+	"(`repeat:1w/done`) counts from the day it is finished. Completing or\n" +
+	"cancelling an open repeating task in a local vault inserts an open\n" +
+	"copy above it with the next dates; a task note moves its own dates on\n" +
+	"instead. `skip:2027-04-02,2027-03-13..2027-03-21` lists days and\n" +
+	"ranges a repeating task passes over. A note is a task note when its\n" +
+	"frontmatter has `tags: [task]` or `page-type: task`.\n" +
 	"\n" +
 	"**Callouts**: `> [!note]`, `> [!tip]`, `> [!warning]`. A `-` right after the\n" +
 	"type (`> [!example]- Screenshots`) makes the callout start collapsed, a `+`\n" +
@@ -230,7 +241,11 @@ const DefaultInstructions = "You are connected to a user's ZenNotes vault: plain
 	"  confirmation.\n" +
 	"- Before rename_note, run backlinks.\n" +
 	"- Task ids from list_tasks (`path#index`) are stable, so pass\n" +
-	"  them to toggle_task.\n" +
+	"  them to toggle_task. In a note with repeating tasks the ids may\n" +
+	"  shift: completing one inserts a line above it, so that task and\n" +
+	"  the tasks after it in the note get new ids. Call list_tasks again\n" +
+	"  before the next toggle there; toggle_task returns the task it\n" +
+	"  toggled.\n" +
 	"- list_tasks omits notes opted out of Tasks (frontmatter\n" +
 	"  `tasks: false`/`note`, excluded folders, the template folder,\n" +
 	"  and notes outside the vault's Task folders when it has any). Pass\n" +
