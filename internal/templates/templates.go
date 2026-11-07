@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ZenNotes/tui/internal/periodic"
+	"github.com/ZenNotes/tui/internal/snippets"
 	"github.com/ZenNotes/tui/internal/vault"
 )
 
@@ -20,7 +21,8 @@ type Template struct {
 	Name        string
 	Description string
 	Category    string
-	// Body is markdown with `{{title}}`, `{{date}}`, `{{cursor}}` tokens.
+	// Body is markdown with `{{title}}`-style variables and snippet tabstops
+	// (`$1`, `${1:placeholder}`, `$0`).
 	Body string
 	// TitleTemplate is an optional title pattern.
 	TitleTemplate string
@@ -42,29 +44,29 @@ func builtin(id, name, description, category, titleTemplate, body string) Templa
 func Builtins() []Template {
 	return []Template{
 		builtin("builtin.adr", "ADR", "Architecture Decision Record", "Engineering", "",
-			"# {{title}}\n\n- **Status:** Proposed\n- **Date:** {{date}}\n- **Deciders:**\n\n## Context\n\n{{cursor}}\n\n## Decision\n\n## Consequences\n\n### Positive\n\n### Negative\n\n## Related\n\n"),
+			"# {{title}}\n\n- **Status:** Proposed\n- **Date:** {{date}}\n- **Deciders:**\n\n## Context\n\n$1\n\n## Decision\n\n## Consequences\n\n### Positive\n\n### Negative\n\n## Related\n\n"),
 		builtin("builtin.rfc", "RFC / Design Doc", "Proposal with motivation, design, and alternatives", "Engineering", "",
-			"# {{title}}\n\n- **Author:**\n- **Status:** Draft\n- **Date:** {{date}}\n\n## Summary\n\n{{cursor}}\n\n## Motivation\n\n## Proposal\n\n## Alternatives considered\n\n## Rollout & risks\n\n## Related\n\n"),
+			"# {{title}}\n\n- **Author:**\n- **Status:** Draft\n- **Date:** {{date}}\n\n## Summary\n\n$1\n\n## Motivation\n\n## Proposal\n\n## Alternatives considered\n\n## Rollout & risks\n\n## Related\n\n"),
 		builtin("builtin.bug", "Bug Report", "Reproducible bug with expected vs actual behavior", "Engineering", "",
-			"# {{title}}\n\n- **Date:** {{date}}\n- **Severity:**\n- **Environment:**\n\n## Steps to reproduce\n\n1. {{cursor}}\n\n## Expected\n\n## Actual\n\n## Notes\n\n"),
+			"# {{title}}\n\n- **Date:** {{date}}\n- **Severity:**\n- **Environment:**\n\n## Steps to reproduce\n\n1. $1\n\n## Expected\n\n## Actual\n\n## Notes\n\n"),
 		builtin("builtin.postmortem", "Postmortem", "Incident review: timeline, root cause, action items", "Engineering", "",
-			"# {{title}}\n\n- **Date:** {{date}}\n- **Authors:**\n- **Impact:**\n\n## Summary\n\n{{cursor}}\n\n## Timeline\n\n## Root cause\n\n## Resolution\n\n## Action items\n\n- [ ]\n\n## Related\n\n"),
+			"# {{title}}\n\n- **Date:** {{date}}\n- **Authors:**\n- **Impact:**\n\n## Summary\n\n$1\n\n## Timeline\n\n## Root cause\n\n## Resolution\n\n## Action items\n\n- [ ]\n\n## Related\n\n"),
 		builtin("builtin.meeting", "Meeting Notes", "Agenda, notes, decisions, and action items", "Engineering", "Meeting {{date:YYYY-MM-DD}}",
-			"# {{title}}\n\n- **Date:** {{date}}\n- **Attendees:**\n\n## Agenda\n\n- {{cursor}}\n\n## Notes\n\n## Decisions\n\n## Action items\n\n- [ ]\n\n"),
+			"# {{title}}\n\n- **Date:** {{date}}\n- **Attendees:**\n\n## Agenda\n\n- $1\n\n## Notes\n\n## Decisions\n\n## Action items\n\n- [ ]\n\n"),
 		builtin("builtin.oneonone", "1:1", "One-on-one: wins, blockers, growth, follow-ups", "Engineering", "1-1 {{date:YYYY-MM-DD}}",
-			"# {{title}}\n\n- **Date:** {{date}}\n\n## Wins\n\n{{cursor}}\n\n## Challenges & blockers\n\n## Growth & feedback\n\n## Follow-ups\n\n- [ ]\n\n"),
+			"# {{title}}\n\n- **Date:** {{date}}\n\n## Wins\n\n$1\n\n## Challenges & blockers\n\n## Growth & feedback\n\n## Follow-ups\n\n- [ ]\n\n"),
 		builtin("builtin.daily", "Daily Note", "A dated daily log with focus, schedule, and tasks", "Personal", "{{date:YYYY-MM-DD}}",
-			"# {{date:dddd, MMMM D, YYYY}}\n\n## Focus\n\n- {{cursor}}\n\n## Schedule\n\n## Notes\n\n## Tasks\n\n- [ ]\n\n## Log\n\n"),
+			"# {{date:dddd, MMMM D, YYYY}}\n\n## Focus\n\n- $1\n\n## Schedule\n\n## Notes\n\n## Tasks\n\n- [ ]\n\n## Log\n\n"),
 		builtin("builtin.weekly", "Weekly Review", "Review last week and plan the next", "Personal", "{{date:YYYY}}-W{{week}}",
-			"# Week {{week}}, {{date:YYYY}}\n\n## Last week: review\n\n- {{cursor}}\n\n## Wins\n\n## This week: plan\n\n- [ ]\n\n## Carry-overs\n\n## Notes\n\n## Related\n\n"),
+			"# Week {{week}}, {{date:YYYY}}\n\n## Last week: review\n\n- $1\n\n## Wins\n\n## This week: plan\n\n- [ ]\n\n## Carry-overs\n\n## Notes\n\n## Related\n\n"),
 		builtin("builtin.reading", "Reading Notes", "Notes on a book or article: ideas, quotes, takeaways", "Personal", "",
-			"# {{title}}\n\n- **Author:**\n- **Started:** {{date}}\n- **Status:** Reading\n\n## Key ideas\n\n- {{cursor}}\n\n## Quotes\n\n>\n\n## Takeaways\n\n## Related\n\n"),
+			"# {{title}}\n\n- **Author:**\n- **Started:** {{date}}\n- **Status:** Reading\n\n## Key ideas\n\n- $1\n\n## Quotes\n\n>\n\n## Takeaways\n\n## Related\n\n"),
 		builtin("builtin.journal", "Journal", "A free-form, first-person dated entry", "Personal", "{{date:YYYY-MM-DD}}",
-			"# {{date:dddd, MMMM D, YYYY}}\n\n{{cursor}}\n\n"),
+			"# {{date:dddd, MMMM D, YYYY}}\n\n$1\n\n"),
 		builtin("builtin.kickoff", "Project Kickoff", "Goals, scope, milestones, and stakeholders", "Personal", "",
-			"# {{title}}\n\n- **Date:** {{date}}\n- **Owner:**\n\n## Goals\n\n- {{cursor}}\n\n## Scope\n\n### In scope\n\n### Out of scope\n\n## Milestones\n\n## Stakeholders\n\n## Risks\n\n## Related\n\n"),
+			"# {{title}}\n\n- **Date:** {{date}}\n- **Owner:**\n\n## Goals\n\n- $1\n\n## Scope\n\n### In scope\n\n### Out of scope\n\n## Milestones\n\n## Stakeholders\n\n## Risks\n\n## Related\n\n"),
 		builtin("builtin.todo", "To-do", "A simple checklist scaffold", "Personal", "",
-			"# {{title}}\n\n- [ ] {{cursor}}\n- [ ]\n- [ ]\n\n"),
+			"# {{title}}\n\n- [ ] $1\n- [ ]\n- [ ]\n\n"),
 	}
 }
 
@@ -223,34 +225,34 @@ func All(custom []vault.CustomTemplateFile, hideBuiltins bool) []Template {
 	return Merge(builtins, parsed)
 }
 
-const cursorToken = "{{cursor}}"
+// legacyCursor is the cursor token of templates written before snippets. It
+// means the same as a final stop, `$0`.
+var legacyCursor = regexp.MustCompile(`\{\{\s*cursor\s*\}\}`)
 
 var tokenRe = regexp.MustCompile(`\{\{\s*([^}]+?)\s*\}\}`)
 
-func substitute(input, title string, now time.Time) string {
-	return substituteLocale(input, title, now, "en")
-}
-func substituteLocale(input, title string, now time.Time, locale string) string {
-	return tokenRe.ReplaceAllStringFunc(input, func(full string) string {
-		m := tokenRe.FindStringSubmatch(full)
-		token := strings.TrimSpace(m[1])
+// Vars resolves the template variables: title, date, time, week and
+// date:FORMAT. A title pattern has no cursor, so cursor resolves to nothing.
+// Other names are left for the caller.
+func Vars(title string, now time.Time, locale string) func(name string) (string, bool) {
+	return func(name string) (string, bool) {
 		_, week := now.ISOWeek()
 		switch {
-		case token == "cursor":
-			return cursorToken
-		case token == "title":
-			return title
-		case token == "date":
-			return now.Format("2006-01-02")
-		case token == "time":
-			return now.Format("15:04")
-		case token == "week":
-			return padTwo(week)
-		case strings.HasPrefix(token, "date:"):
-			return periodic.FormatTemplateDateLocale(now, token[len("date:"):], locale)
+		case name == "cursor":
+			return "", true
+		case name == "title":
+			return title, true
+		case name == "date":
+			return now.Format("2006-01-02"), true
+		case name == "time":
+			return now.Format("15:04"), true
+		case name == "week":
+			return padTwo(week), true
+		case strings.HasPrefix(name, "date:"):
+			return periodic.FormatTemplateDateLocale(now, name[len("date:"):], locale), true
 		}
-		return full
-	})
+		return "", false
+	}
 }
 
 func padTwo(n int) string {
@@ -260,25 +262,38 @@ func padTwo(n int) string {
 	return string(rune('0'+n/10)) + string(rune('0'+n%10))
 }
 
-// Rendered is a template body with its tokens expanded; CursorOffset is the
-// rune offset of `{{cursor}}` in the body, or -1 when absent.
+// Rendered is a template body expanded. Body is the text to insert and
+// Expansion holds its stops. CursorOffset is the offset of the first stop, or
+// -1 when the body declares none.
 type Rendered struct {
 	Body         string
 	CursorOffset int
+	Expansion    snippets.Expansion
 }
 
 // Render expands a template body.
 func Render(body, title string, now time.Time) Rendered { return RenderLocale(body, title, now, "en") }
+
+// RenderLocale is Render with a locale for date:FORMAT names.
 func RenderLocale(body, title string, now time.Time, locale string) Rendered {
-	substituted := substituteLocale(body, title, now, locale)
+	exp := snippets.Parse(legacyCursor.ReplaceAllLiteralString(body, "$0"), Vars(title, now, locale))
 	offset := -1
-	if idx := strings.Index(substituted, cursorToken); idx >= 0 {
-		offset = len([]rune(substituted[:idx]))
+	if exp.Explicit {
+		offset = exp.Stops[0].At.Start
 	}
-	return Rendered{Body: strings.ReplaceAll(substituted, cursorToken, ""), CursorOffset: offset}
+	return Rendered{Body: exp.Text, CursorOffset: offset, Expansion: exp}
 }
 
-// RenderTitle expands a title pattern; cursor tokens drop.
+// RenderTitle expands a title pattern. Unknown names and cursor tokens drop
+// out or stay as written; the result is trimmed.
 func RenderTitle(titleTemplate, title string, now time.Time) string {
-	return strings.TrimSpace(strings.ReplaceAll(substitute(titleTemplate, title, now), cursorToken, ""))
+	vars := Vars(title, now, "en")
+	out := tokenRe.ReplaceAllStringFunc(titleTemplate, func(full string) string {
+		name := strings.TrimSpace(tokenRe.FindStringSubmatch(full)[1])
+		if v, ok := vars(name); ok {
+			return v
+		}
+		return full
+	})
+	return strings.TrimSpace(out)
 }
