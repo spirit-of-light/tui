@@ -585,3 +585,31 @@ func TestLoadTextDuringInsertKeepsTheChangeOpen(t *testing.T) {
 		t.Fatalf("undo gave %q", got)
 	}
 }
+
+func TestReplaceSpanAndOffsetsRoundTrip(t *testing.T) {
+	e := New("ab\ncd\nef", DefaultOptions(), Hooks{})
+	if got := e.OffsetOf(Pos{1, 1}); got != 4 {
+		t.Fatalf("offset %d", got)
+	}
+	if got := e.PosOf(7); got != (Pos{2, 1}) {
+		t.Fatalf("pos %+v", got)
+	}
+	e.ReplaceSpan(3, 5, "XYZ")
+	if e.Text() != "ab\nXYZ\nef" {
+		t.Fatalf("text %q", e.Text())
+	}
+	e.SetCursor(Pos{0, 0})
+	e.HandleKey(R('u'))
+	if e.Text() != "ab\ncd\nef" {
+		t.Fatalf("undo gave %q", e.Text())
+	}
+}
+
+func TestInsertAtCursorAtReportsStart(t *testing.T) {
+	e := New("ab\ncd", DefaultOptions(), Hooks{})
+	e.SetCursor(Pos{1, 0})
+	// In normal mode the text goes after the cursor, as InsertAtCursor always did.
+	if start := e.InsertAtCursorAt("X"); start != 4 || e.Text() != "ab\ncXd" {
+		t.Fatalf("start %d text %q", start, e.Text())
+	}
+}

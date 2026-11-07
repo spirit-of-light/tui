@@ -1636,18 +1636,58 @@ func (e *Editor) WordUnderCursor() string {
 
 // InsertAtCursor inserts text as one undoable change and leaves the cursor
 // after it.
-func (e *Editor) InsertAtCursor(text string) {
+func (e *Editor) InsertAtCursor(text string) { e.InsertAtCursorAt(text) }
+
+// InsertAtCursorAt is InsertAtCursor and also returns the offset of the
+// inserted text.
+func (e *Editor) InsertAtCursorAt(text string) int {
 	e.beginChange()
 	p := e.cursor
 	if e.mode != ModeInsert && e.mode != ModeReplace && e.buf.LineLen(p.Line) > 0 && p.Col < e.buf.LineLen(p.Line) {
 		p.Col++
 	}
+	start := e.OffsetOf(p)
 	end := e.buf.InsertText(p, text)
 	e.cursor = end
 	if e.mode != ModeInsert && e.mode != ModeReplace {
 		e.cursor = e.buf.clampNormal(e.cursor)
 		e.commitChange()
 	}
+	return start
+}
+
+// ReplaceSpan replaces the text between two offsets (rune offsets into Text)
+// with text, as part of the change in progress: in insert mode it joins the
+// typing, so one undo takes both. The cursor is not moved; callers set it.
+func (e *Editor) ReplaceSpan(start, end int, text string) {
+	e.beginChange()
+	a, b := e.PosOf(start), e.PosOf(end)
+	e.buf.DeleteRange(a, b)
+	e.buf.InsertText(a, text)
+	if e.mode != ModeInsert && e.mode != ModeReplace {
+		e.commitChange()
+	}
+}
+
+// OffsetOf returns the rune offset of p in Text.
+func (e *Editor) OffsetOf(p Pos) int {
+	off := 0
+	for i := 0; i < p.Line && i < e.buf.LineCount(); i++ {
+		off += e.buf.LineLen(i) + 1
+	}
+	return off + p.Col
+}
+
+// PosOf returns the position of rune offset off in Text, clamped to the text.
+func (e *Editor) PosOf(off int) Pos {
+	for line := 0; line < e.buf.LineCount(); line++ {
+		n := e.buf.LineLen(line)
+		if off <= n || line == e.buf.LineCount()-1 {
+			return Pos{Line: line, Col: max(0, min(off, n))}
+		}
+		off -= n + 1
+	}
+	return Pos{}
 }
 
 // ReplaceAtCursor swaps the before runes left of the cursor and the after
