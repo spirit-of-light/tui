@@ -1168,7 +1168,7 @@ func Run(ctx context.Context, opts Options) error {
 					agent = agentForClient(params.ClientInfo.Name)
 				}
 			}
-			result, err := runRecording(ctx, def.name, args(a), b, agent, func() (any, error) {
+			result, err := runRecording(ctx, def.name, args(a), b, agent, func(ctx context.Context) (any, error) {
 				return def.handler(ctx, args(a), b)
 			})
 			if err != nil {
