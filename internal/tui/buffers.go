@@ -11,6 +11,7 @@ import (
 	"github.com/atotto/clipboard"
 
 	"github.com/ZenNotes/tui/internal/backend"
+	"github.com/ZenNotes/tui/internal/snippets"
 	"github.com/ZenNotes/tui/internal/vault"
 	"github.com/ZenNotes/tui/internal/vim"
 )
@@ -18,6 +19,8 @@ import (
 // noteBuffer is an open note: its Vim editor plus save state. One buffer
 // serves every tab and split showing the same note.
 type noteBuffer struct {
+	// snip is the snippet session in progress in this note, if any.
+	snip *snippets.Session
 	// codeHL caches the syntax highlighting of fenced code per version.
 	codeHL      *codeHighlights
 	path        string

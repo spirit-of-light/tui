@@ -682,7 +682,7 @@ func (a *App) createFromTemplate(t templates.Template) {
 		a.markNewNote(meta.Path)
 		a.openNote(meta.Path, true)
 		if rendered.CursorOffset >= 0 {
-			a.withLoadedBuffer(meta.Path, func(buf *noteBuffer) { buf.ed.SetCursor(posForOffset(buf.ed.Text(), rendered.CursorOffset)) })
+			a.withLoadedBuffer(meta.Path, func(buf *noteBuffer) { a.beginSnippetSession(buf, rendered.Expansion, 0, true) })
 		}
 		a.refreshIndex()
 	})
@@ -696,26 +696,10 @@ func (a *App) insertTemplate(t templates.Template) {
 	}
 	meta, _ := a.noteMeta(buf.path)
 	rendered := templates.Render(t.Body, meta.Title, time.Now())
-	body := strings.TrimPrefix(rendered.Body, "# "+meta.Title+"\n")
-	buf.ed.InsertAtCursor(strings.TrimRight(body, "\n"))
+	exp := templateBodyAfterTitle(rendered.Expansion, meta.Title)
+	start := buf.ed.InsertAtCursorAt(exp.Text)
+	a.beginSnippetSession(buf, exp, start, rendered.Expansion.Explicit)
 	a.notify("Inserted " + t.Name)
-}
-
-// posForOffset maps a rune offset to a position.
-func posForOffset(text string, offset int) vim.Pos {
-	line, col := 0, 0
-	for i, r := range []rune(text) {
-		if i == offset {
-			break
-		}
-		if r == '\n' {
-			line++
-			col = 0
-		} else {
-			col++
-		}
-	}
-	return vim.Pos{Line: line, Col: col}
 }
 
 // --- folders ---

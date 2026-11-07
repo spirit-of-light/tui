@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/ZenNotes/tui/internal/config"
 	"github.com/ZenNotes/tui/internal/fswatch"
 	"github.com/ZenNotes/tui/internal/keymaps"
+	"github.com/ZenNotes/tui/internal/snippets"
 	"github.com/ZenNotes/tui/internal/termsafe"
 	"github.com/ZenNotes/tui/internal/themes"
 	"github.com/ZenNotes/tui/internal/vault"
@@ -87,12 +89,14 @@ type App struct {
 	markedMoveDirs map[string]string
 	boardOrder     map[string][]string
 	buffers        map[string]*noteBuffer
-	registers      vim.RegisterStore
-	noteModes      map[string]paneMode
-	newNotes       map[string]bool
-	panes          *paneNode
-	activePane     *pane
-	focus          focusTarget
+	// snippetLib holds the triggers from snippets.toml.
+	snippetLib snippets.Library
+	registers  vim.RegisterStore
+	noteModes  map[string]paneMode
+	newNotes   map[string]bool
+	panes      *paneNode
+	activePane *pane
+	focus      focusTarget
 
 	sidebar         *sidebarState
 	sidebarOpen     bool
@@ -259,6 +263,11 @@ func newApp(ctx context.Context, opts Options, prefs config.Prefs, systemDark bo
 	sel, selErr := themeSelection(prefs)
 	if err := a.setTheme(sel); err != nil || selErr != nil {
 		a.notifyError(errors.Join(selErr, err).Error())
+	}
+	lib, snippetErrs := snippets.LoadLibrary(filepath.Join(config.PortableConfigDir(), "snippets.toml"))
+	a.snippetLib = lib
+	if len(snippetErrs) > 0 {
+		a.notifyError(errors.Join(snippetErrs...).Error())
 	}
 	a.activePane = a.panes.leaves()[0]
 	a.sidebar = newSidebar(a)

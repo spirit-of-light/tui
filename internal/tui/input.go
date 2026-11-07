@@ -76,6 +76,9 @@ func (a *App) handleKey(k vim.Key) tea.Cmd {
 		editing = m == vim.ModeInsert || m == vim.ModeReplace || m == vim.ModeCmdline || !a.prefs.VimMode
 	}
 	if editing {
+		if a.snippetKey(buf, k) {
+			return a.afterKey()
+		}
 		if a.completionKey(buf, k) || a.chordKey(k, true) {
 			return a.afterKey()
 		}
@@ -238,6 +241,7 @@ func (a *App) completionKey(buf *noteBuffer, k vim.Key) bool {
 // afterKey flushes queued commands and the quit signal.
 func (a *App) afterKey() tea.Cmd {
 	a.persistPreferences()
+	a.syncSnippets()
 	if a.quitting {
 		return tea.Quit
 	}

@@ -632,7 +632,24 @@ reloads it afterwards. In Vim mode, `Ctrl+Z` suspends to the shell.
   reference updates, trash and restore. Import limit: 64 MiB.
 - **Templates** (`:templates`): preview, create, edit Markdown/metadata,
   duplicate, delete and override built-ins. The editor accepts the same
-  frontmatter and template tokens as desktop.
+  frontmatter and template tokens as desktop. A template's cursor is a
+  tabstop (`$1`), and `$0` is the final one; `Ctrl+L` and `Ctrl+H` step
+  between stops while in insert mode.
+- **Snippets**: in insert mode, type a trigger word and press `Ctrl+N` to
+  expand it. Snippets live in `snippets.toml` in the config directory
+  (`~/.config/zennotes/`, or `ZENNOTES_CONFIG_DIR`):
+
+  ```toml
+  [[snippet]]
+  trigger = "snip"
+  description = "Markdown link"
+  body = '''[${1:label}](${2:https://})$0'''
+  ```
+
+  Tabstops are `$1`, `${1:default}`, and `$0` for the final position; a
+  repeated number mirrors the first. `{{title}}`, `{{date}}`, `{{time}}`,
+  `{{week}}` and `{{date:FORMAT}}` expand too. Write `\$` for a literal dollar
+  sign. Typing over untouched default text replaces it.
 - Side panels: Outline (`Space p`), Connections with backlinks
   (`:connections`), Calendar (`Space c`), Comments (`:comments`). Comments
   support anchors, replies, edit/delete, resolve/reopen and a scrollable

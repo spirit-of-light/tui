@@ -78,7 +78,7 @@ func (v *templatesView) handleKey(a *App, k vim.Key) bool {
 			if name = strings.TrimSpace(name); name == "" {
 				return
 			}
-			t := templates.Template{Name: name, Category: "Custom", Body: "# {{title}}\n\n{{cursor}}\n"}
+			t := templates.Template{Name: name, Category: "Custom", Body: "# {{title}}\n\n$1\n"}
 			v.save(a, t, "", true)
 		})
 	case k.IsRune('/'):
