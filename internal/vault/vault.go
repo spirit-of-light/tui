@@ -1107,7 +1107,7 @@ func (v *Vault) ToggleTask(taskID string, dialect TaskDialect) (*Task, error) {
 		if !found {
 			return nil, nil
 		}
-		next, _ := RollTaskFileInBody(string(body), RollComplete, v.now(), v.WeekStart)
+		next, _ := RollTaskFileInBodyWith(string(body), RollComplete, v.now(), v.WeekStart, v.skipResolver(v.now()))
 		if _, err := v.WriteNote(relPosix, next); err != nil {
 			return nil, err
 		}
@@ -1135,7 +1135,7 @@ func (v *Vault) ToggleTask(taskID string, dialect TaskDialect) (*Task, error) {
 	} else if targetIndex, err = ParseTaskIndex(taskID, indexStr); err != nil {
 		return nil, err
 	}
-	next, inserted, found := RollTaskInBody(string(body), targetIndex, dialect, RollComplete, v.now(), v.WeekStart)
+	next, inserted, found := RollTaskInBodyWith(string(body), targetIndex, dialect, RollComplete, v.now(), v.WeekStart, v.skipResolver(v.now()))
 	if !found {
 		return nil, nil
 	}
