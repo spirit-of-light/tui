@@ -866,8 +866,8 @@ func tools() []toolDef {
 		},
 		{
 			name:        "toggle_task",
-			description: "Flip a task’s checkbox state using its stable id from list_tasks (\"<path>#<index>\"). Returns the updated task, or null if the id no longer matches a task (content drifted).",
-			schema:      `{"type":"object","properties":{"id":{"type":"string","description":"Stable task id: sourcePath#taskIndex."}},"required":["id"]}`,
+			description: "Flip a task’s checkbox state using its stable id from list_tasks (\"<path>#<index>\"), or the form \"<path>#^<blockId>\" for a task line that ends with a block id. Returns the updated task, or null if the id no longer matches a task (content drifted).",
+			schema:      `{"type":"object","properties":{"id":{"type":"string","description":"Stable task id: sourcePath#taskIndex, or sourcePath#^blockId."}},"required":["id"]}`,
 			handler: func(ctx context.Context, a args, b Backend) (any, error) {
 				id, err := a.requireString("id")
 				if err != nil {
