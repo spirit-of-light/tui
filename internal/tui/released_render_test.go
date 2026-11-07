@@ -108,24 +108,26 @@ func releasedRenderReport(t *testing.T) string {
 	t.Helper()
 	now := time.Now()
 	var b strings.Builder
-	section := func(title, body string) {
+	// Each section writes its dates as offsets from the day its vault was made
+	// for, so the report is the same on every day.
+	section := func(title, body string, day time.Time) {
 		b.WriteString("== " + title + " ==\n")
-		b.WriteString(releasedRelative(stripAnsi(body), now))
+		b.WriteString(releasedRelative(stripAnsi(body), day))
 		b.WriteString("\n")
 	}
 
 	a := newSessionParityApp(t, releasedRenderVault(t, now))
 	loadTasksForTest(t, a)
 	a.prefs.TasksViewMode = "list"
-	section("list", newTasksView(a).render(a, 120, 40, true))
+	section("list", newTasksView(a).render(a, 120, 40, true), now)
 	a.prefs.TasksViewMode = "kanban"
 	for _, group := range []string{"status", "priority", "due"} {
 		a.prefs.KanbanGroupBy = group
-		section("board by "+group, newTasksView(a).render(a, 120, 40, true))
+		section("board by "+group, newTasksView(a).render(a, 120, 40, true), now)
 	}
 	home := &homeView{}
 	home.refresh(a)
-	section("home", releasedHomeText(home.render(a, 120, 40, true)))
+	section("home", releasedHomeText(home.render(a, 120, 40, true)), now)
 
 	// The month grid names real days, so the calendar reads a fixed day.
 	prev := calendarNow
@@ -137,7 +139,7 @@ func releasedRenderReport(t *testing.T) string {
 	v := newTasksView(a)
 	v.month = time.Date(releasedDay.Year(), releasedDay.Month(), 1, 0, 0, 0, 0, time.Local)
 	v.day = releasedDay
-	section("calendar month", v.render(a, 120, 40, true))
+	section("calendar month", v.render(a, 120, 40, true), releasedDay)
 	return b.String()
 }
 
