@@ -78,6 +78,12 @@ func testScope(t *testing.T, access string, allow, deny []string) *Scope {
 // runScoped serves a vault under a scope over an in-memory transport.
 func runScoped(t *testing.T, root string, scope *Scope) *sdk.ClientSession {
 	t.Helper()
+	return runScopedWith(t, root, scope, backend.Options{})
+}
+
+// runScopedWith is runScoped with options for the local backend.
+func runScopedWith(t *testing.T, root string, scope *Scope, opts backend.Options) *sdk.ClientSession {
+	t.Helper()
 	t.Setenv("ZENNOTES_CONFIG_DIR", t.TempDir())
 	ctx, cancel := context.WithCancel(context.Background())
 	serverT, clientT := sdk.NewInMemoryTransports()
@@ -86,7 +92,7 @@ func runScoped(t *testing.T, root string, scope *Scope) *sdk.ClientSession {
 		defer close(done)
 		_ = Run(ctx, Options{
 			ResolveTarget: func() (backend.Target, error) { return backend.Target{Kind: backend.KindLocal, Root: root}, nil },
-			OpenBackend:   func(t backend.Target) (Backend, error) { return backend.New(t, backend.Options{}) },
+			OpenBackend:   func(t backend.Target) (Backend, error) { return backend.New(t, opts) },
 			Transport:     serverT,
 			Scope:         scope,
 		})
