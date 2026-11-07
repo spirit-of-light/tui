@@ -268,3 +268,19 @@ func TestParseLibraryRejectsBadTOML(t *testing.T) {
 		t.Fatal("bad TOML accepted")
 	}
 }
+
+func TestSessionOnlyForTwoOrMoreTabstops(t *testing.T) {
+	cases := map[string]bool{
+		"$1 text":       false, // one tabstop, the implicit final stop is not a session
+		"$1 $1":         true,  // mirrors of one tabstop // one tabstop repeated: typing in one place updates the other
+		"$0":            false,
+		"$1 $0":         true,
+		"${1:a} ${2:b}": true,
+	}
+	for body, want := range cases {
+		e := Parse(body, noVars)
+		if got := NewSession(e, 0, e.Text).Active(); got != want {
+			t.Errorf("%q: active=%v, want %v", body, got, want)
+		}
+	}
+}

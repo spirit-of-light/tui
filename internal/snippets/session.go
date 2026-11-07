@@ -15,8 +15,12 @@ type Replacement struct {
 // as of its last sync and the stops' positions in that text.
 type Session struct {
 	stops []Stop
-	cur   int
-	text  []rune
+	// navigable says there is something to do in the expansion: two or more
+	// tabstops to step through, or a mirror to keep in step. A lone tabstop
+	// with no mirror is only placed, not a session.
+	navigable bool
+	cur       int
+	text      []rune
 	// fresh says the current stop still holds the default text it arrived with,
 	// so the next typed character replaces it. Any edit clears it.
 	fresh bool
@@ -26,7 +30,7 @@ type Session struct {
 // full buffer text after the expansion has been inserted. The cursor starts at
 // the first stop.
 func NewSession(exp Expansion, base int, text string) *Session {
-	s := &Session{text: []rune(text)}
+	s := &Session{text: []rune(text), navigable: exp.Declared >= 2 || hasMirrors(exp)}
 	for _, st := range exp.Stops {
 		ns := Stop{Index: st.Index, At: Span{st.At.Start + base, st.At.End + base}}
 		for _, m := range st.Mirrors {
@@ -38,9 +42,19 @@ func NewSession(exp Expansion, base int, text string) *Session {
 	return s
 }
 
-// Active reports whether the session has stops to move between. A snippet
-// with only a final stop ends at once.
-func (s *Session) Active() bool { return s != nil && len(s.stops) > 1 }
+// hasMirrors reports whether any stop is repeated in the expansion.
+func hasMirrors(exp Expansion) bool {
+	for _, st := range exp.Stops {
+		if len(st.Mirrors) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// Active reports whether the session has something to do. A body with one
+// tabstop and nothing mirrored, such as a template's cursor, does not.
+func (s *Session) Active() bool { return s != nil && s.navigable && len(s.stops) > 1 }
 
 // Cursor is the offset of the current stop.
 func (s *Session) Cursor() int { return s.stops[s.cur].At.Start }

@@ -2,8 +2,10 @@ package tui
 
 import (
 	"testing"
+	"time"
 
 	"github.com/ZenNotes/tui/internal/snippets"
+	"github.com/ZenNotes/tui/internal/templates"
 	"github.com/ZenNotes/tui/internal/vim"
 )
 
@@ -99,5 +101,20 @@ body = "X$0"
 	a.handleKey(vim.Ctrl('n'))
 	if buf.ed.Text() != "xsnip" {
 		t.Fatalf("expanded inside a word: %q", buf.ed.Text())
+	}
+}
+
+// A template with one tabstop places the cursor and leaves Ctrl+L alone, so
+// the checkbox toggle keeps working in notes made from it.
+func TestSingleTabstopTemplateDoesNotCaptureCtrlL(t *testing.T) {
+	a, buf := snippetTestApp(t, "")
+	exp := templates.Render("ab$1cd", "", time.Now()).Expansion
+	buf.ed.ReplaceText(exp.Text)
+	a.beginSnippetSession(buf, exp, 0, true)
+	if buf.snip != nil {
+		t.Fatal("one tabstop opened a session")
+	}
+	if got := buf.ed.OffsetOf(buf.ed.Cursor()); got != 2 {
+		t.Fatalf("cursor at %d, want the tabstop", got)
 	}
 }

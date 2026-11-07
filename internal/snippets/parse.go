@@ -32,6 +32,8 @@ type Expansion struct {
 	Stops []Stop
 	// Explicit is false when the body declared no tabstop at all.
 	Explicit bool
+	// Declared counts the distinct tabstop numbers the body wrote, `$0` included.
+	Declared int
 }
 
 // Parse expands body. resolve supplies the value of a `{{name}}` variable; a
@@ -217,7 +219,7 @@ func (p *parser) finish() Expansion {
 		stops = append(stops, Stop{Index: 0, At: Span{end, end}})
 	}
 	sort.SliceStable(stops, func(i, j int) bool { return navRank(stops[i].Index) < navRank(stops[j].Index) })
-	return Expansion{Text: string(p.out), Stops: stops, Explicit: len(p.occs) > 0}
+	return Expansion{Text: string(p.out), Stops: stops, Explicit: len(p.occs) > 0, Declared: len(order)}
 }
 
 // navRank orders stops for navigation: 1 upward, with 0 last.
@@ -246,7 +248,7 @@ func (e Expansion) Slice(from, to int) Expansion {
 	runes := []rune(e.Text)
 	from = clamp(from, 0, len(runes))
 	to = clamp(to, from, len(runes))
-	out := Expansion{Text: string(runes[from:to]), Explicit: e.Explicit}
+	out := Expansion{Text: string(runes[from:to]), Explicit: e.Explicit, Declared: e.Declared}
 	width := to - from
 	shift := func(s Span) Span {
 		return Span{clamp(s.Start-from, 0, width), clamp(s.End-from, 0, width)}
