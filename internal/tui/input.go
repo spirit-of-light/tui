@@ -95,6 +95,7 @@ func (a *App) handleKey(k vim.Key) tea.Cmd {
 			a.maybeWikilinkCompletion(buf)
 		}
 		a.refreshTagMenu(buf)
+		a.updateSnippetPreview(buf)
 		return a.afterKey()
 	}
 	if a.chordKey(k, false) {

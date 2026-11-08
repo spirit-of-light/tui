@@ -21,6 +21,8 @@ import (
 type noteBuffer struct {
 	// snip is the snippet session in progress in this note, if any.
 	snip *snippets.Session
+	// snippetPreview shows matching snippet previews while typing a trigger word.
+	snippetPreview *snippetPreview
 	// codeHL caches the syntax highlighting of fenced code per version.
 	codeHL      *codeHighlights
 	path        string

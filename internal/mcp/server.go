@@ -211,7 +211,8 @@ func sortByUpdated(notes []vault.NoteMeta) {
 func tools() []toolDef {
 	out := coreTools()
 	out = append(out, assetTools()...)
-	return append(out, workTools()...)
+	out = append(out, workTools()...)
+	return append(out, snippetTools()...)
 }
 
 func coreTools() []toolDef {

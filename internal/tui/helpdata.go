@@ -17,6 +17,9 @@ func helpLines(a *App, filter string) []string {
 	if a.keymap.Binding("vim.leaderPrefix") != "" {
 		leader = a.keymap.Binding("vim.leaderPrefix")
 	}
+	snippetNext := a.keymap.Binding("editor.snippetNext")
+	snippetPrev := a.keymap.Binding("editor.snippetPrev")
+	snippetExpand := a.keymap.Binding("editor.snippetExpand")
 	all := []string{
 		"# ZenNotes in the terminal",
 		"zn tui is ZenNotes without the window: the same vault, notes, tasks, tags, templates and Vim motions,",
@@ -92,9 +95,9 @@ func helpLines(a *App, filter string) []string {
 		"v V Ctrl+V gv o\tCharacter, line and block visual modes; block insert with I and A",
 		"",
 		"## Editor: Markdown",
-		"Ctrl+L\tToggle the checkbox on the line (also in insert mode; while a snippet is open, the next stop)",
-		"Ctrl+N\tIn insert mode, expand the snippet whose trigger word ends at the cursor (otherwise word completion)",
-		"Ctrl+H\tWhile a snippet is open, the previous stop (elsewhere, backspace)",
+		"Ctrl+L\tToggle the checkbox on the line (also in insert mode; while a snippet is open, " + snippetNext + ")",
+		snippetExpand + "\tIn insert mode, expand the snippet whose trigger word ends at the cursor (otherwise word completion)",
+		snippetPrev + "\tWhile a snippet is open, the previous stop (elsewhere, backspace)",
 		"gd\tFollow the link under the cursor (wikilink, Markdown link or URL); missing notes are created on confirm",
 		"gx\tOpen the URL under the cursor in the browser",
 		"gy\tCopy the link under the cursor",
