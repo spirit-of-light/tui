@@ -64,6 +64,11 @@ func ConfigTomlPath() string {
 	return filepath.Join(PortableConfigDir(), "config.toml")
 }
 
+// SnippetsPath is the user's snippet library, read by the editor and the MCP server.
+func SnippetsPath() string {
+	return filepath.Join(PortableConfigDir(), "snippets.toml")
+}
+
 // PreamblePath is the user-owned LaTeX preamble for math = "latex".
 func PreamblePath() string {
 	return filepath.Join(PortableConfigDir(), "preamble.tex")

@@ -10,14 +10,19 @@ import (
 	"github.com/ZenNotes/tui/internal/vim"
 )
 
-// snippetKey handles the snippet keys in insert mode. Ctrl+N expands the
-// trigger word before the cursor; while a session is open, Ctrl+L and Ctrl+H
-// step to the next and previous stop. A key that has nothing to do here is
-// left to the usual handling, so outside a session these keys keep their
-// normal meaning.
+// snippetKey handles the snippet keys in insert mode. The keys are the
+// editor.snippet* actions in the keymap. The snippet menu's keys come first,
+// while the menu is open. Then, while a session is open, the next and previous
+// stop keys move through its stops. The expand key expands the trigger word
+// before the cursor, or the menu's selected item. A key with nothing to do
+// here is left to the usual handling, so outside a session these keys keep
+// their normal meaning.
 func (a *App) snippetKey(buf *noteBuffer, k vim.Key) bool {
 	if buf.ed.Mode() != vim.ModeInsert {
 		return false
+	}
+	if a.snippetMenuKey(buf, k) {
+		return true
 	}
 	if buf.snip.Active() {
 		if span, ok := buf.snip.Replaces(); ok && k.Printable() && buf.ed.OffsetOf(buf.ed.Cursor()) == span.Start {
@@ -29,15 +34,15 @@ func (a *App) snippetKey(buf *noteBuffer, k vim.Key) bool {
 			return false
 		}
 		switch {
-		case k.IsCtrl('l'):
+		case a.bound(k, "editor.snippetNext"):
 			if off, ok := buf.snip.Next(); ok {
 				buf.ed.SetCursor(buf.ed.PosOf(off))
 				return true
 			}
-			// Past the final stop the session is over and Ctrl+L does its usual job.
+			// Past the final stop the session is over and the key does its usual job.
 			buf.snip = nil
 			return false
-		case k.IsCtrl('h'):
+		case a.bound(k, "editor.snippetPrev"):
 			if off, ok := buf.snip.Prev(); ok {
 				buf.ed.SetCursor(buf.ed.PosOf(off))
 				return true
@@ -45,30 +50,49 @@ func (a *App) snippetKey(buf *noteBuffer, k vim.Key) bool {
 			return false
 		}
 	}
-	if k.IsCtrl('n') {
+	if a.bound(k, "editor.snippetExpand") {
 		return a.expandSnippetAtCursor(buf)
 	}
 	return false
 }
 
-// expandSnippetAtCursor expands the trigger word that ends at the cursor. It
-// reports false, changing nothing, when there is no such trigger, so Ctrl+N
-// keeps its word completion everywhere else.
-func (a *App) expandSnippetAtCursor(buf *noteBuffer) bool {
-	cur := buf.ed.Cursor()
-	line := buf.ed.LineRunes(cur.Line)
-	end := min(cur.Col, len(line))
+// snippetWordBefore is the run of trigger characters that ends at col, and the
+// column where it starts.
+func snippetWordBefore(line []rune, col int) (string, int) {
+	end := min(col, len(line))
 	start := end
 	for start > 0 && snippets.IsWordRune(line[start-1]) {
 		start--
 	}
-	if start == end {
+	return string(line[start:end]), start
+}
+
+// expandSnippetAtCursor expands the trigger word that ends at the cursor. While
+// the snippet menu is open, it expands the menu's selected item instead. It
+// reports false, changing nothing, when there is nothing to expand, so the key
+// keeps its word completion everywhere else.
+func (a *App) expandSnippetAtCursor(buf *noteBuffer) bool {
+	if m := a.liveSnippetMenu(); m != nil {
+		a.acceptSnippetMenu(buf, m)
+		return true
+	}
+	cur := buf.ed.Cursor()
+	word, start := snippetWordBefore(buf.ed.LineRunes(cur.Line), cur.Col)
+	if word == "" {
 		return false
 	}
-	sn, ok := a.snippetLib.Lookup(string(line[start:end]))
+	sn, ok := a.snippetLib.Lookup(word)
 	if !ok {
 		return false
 	}
+	a.expandSnippetWord(buf, sn, start)
+	return true
+}
+
+// expandSnippetWord replaces the text from column start to the cursor with the
+// snippet's expansion and opens its session.
+func (a *App) expandSnippetWord(buf *noteBuffer, sn snippets.Snippet, start int) {
+	cur := buf.ed.Cursor()
 	title := ""
 	if meta, ok := a.noteMeta(buf.path); ok {
 		title = meta.Title
@@ -78,7 +102,6 @@ func (a *App) expandSnippetAtCursor(buf *noteBuffer) bool {
 	to := buf.ed.OffsetOf(cur)
 	buf.ed.ReplaceSpan(from, to, exp.Text)
 	a.beginSnippetSession(buf, exp, from, true)
-	return true
 }
 
 // beginSnippetSession opens the session for exp, which was inserted at offset

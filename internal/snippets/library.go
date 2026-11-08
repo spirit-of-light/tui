@@ -1,9 +1,11 @@
 package snippets
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -102,6 +104,10 @@ func LoadLibrary(path string) (Library, []error) {
 	return ParseLibrary(string(raw))
 }
 
+// ValidTrigger reports whether s can be a trigger: letters, digits, _ and -,
+// with no surrounding space.
+func ValidTrigger(s string) bool { return s != "" && s == strings.TrimSpace(s) && allWordRunes(s) }
+
 func allWordRunes(s string) bool {
 	for _, r := range s {
 		if !IsWordRune(r) {
@@ -109,4 +115,39 @@ func allWordRunes(s string) bool {
 		}
 	}
 	return s != ""
+}
+
+// Marshal writes the library in the form ParseLibrary reads, sorted by trigger.
+func Marshal(lib Library) (string, error) {
+	var doc fileDoc
+	for _, t := range lib.Triggers() {
+		s := lib[t]
+		doc.Snippet = append(doc.Snippet, struct {
+			Trigger     string `toml:"trigger"`
+			Description string `toml:"description"`
+			Body        string `toml:"body"`
+		}{Trigger: s.Trigger, Description: s.Description, Body: s.Body + "\n"})
+	}
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(doc); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+// SaveLibrary writes path atomically, creating its directory. Comments in an
+// existing file are not kept: the file is rewritten from the library.
+func SaveLibrary(path string, lib Library) error {
+	raw, err := Marshal(lib)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(raw), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }

@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -91,12 +90,15 @@ type App struct {
 	buffers        map[string]*noteBuffer
 	// snippetLib holds the triggers from snippets.toml.
 	snippetLib snippets.Library
-	registers  vim.RegisterStore
-	noteModes  map[string]paneMode
-	newNotes   map[string]bool
-	panes      *paneNode
-	activePane *pane
-	focus      focusTarget
+	// snippetMenu is the trigger menu open under the cursor, if any.
+	snippetMenu      *snippetMenu
+	snippetDismissed *snippetMenuDismissal
+	registers        vim.RegisterStore
+	noteModes        map[string]paneMode
+	newNotes         map[string]bool
+	panes            *paneNode
+	activePane       *pane
+	focus            focusTarget
 
 	sidebar         *sidebarState
 	sidebarOpen     bool
@@ -264,7 +266,7 @@ func newApp(ctx context.Context, opts Options, prefs config.Prefs, systemDark bo
 	if err := a.setTheme(sel); err != nil || selErr != nil {
 		a.notifyError(errors.Join(selErr, err).Error())
 	}
-	lib, snippetErrs := snippets.LoadLibrary(filepath.Join(config.PortableConfigDir(), "snippets.toml"))
+	lib, snippetErrs := snippets.LoadLibrary(config.SnippetsPath())
 	a.snippetLib = lib
 	if len(snippetErrs) > 0 {
 		a.notifyError(errors.Join(snippetErrs...).Error())
@@ -767,6 +769,7 @@ func (a *App) View() string {
 		screen = overlayOn(screen, a.renderWhichKey(), a.width, a.height)
 	} else {
 		screen = a.paintTagMenu(screen)
+		screen = a.paintSnippetMenu(screen)
 	}
 	if len(a.toasts) > 0 {
 		screen = a.renderToasts(screen)

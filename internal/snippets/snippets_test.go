@@ -1,6 +1,7 @@
 package snippets
 
 import (
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -282,5 +283,23 @@ func TestSessionOnlyForTwoOrMoreTabstops(t *testing.T) {
 		if got := NewSession(e, 0, e.Text).Active(); got != want {
 			t.Errorf("%q: active=%v, want %v", body, got, want)
 		}
+	}
+}
+
+func TestSaveLibraryRoundTrips(t *testing.T) {
+	lib := Library{
+		"snip": {Trigger: "snip", Description: "Link", Body: "[${1:label}](${2:url})$0"},
+		"todo": {Trigger: "todo", Body: "- [ ] $1\n$0"},
+	}
+	path := filepath.Join(t.TempDir(), "nested", "snippets.toml")
+	if err := SaveLibrary(path, lib); err != nil {
+		t.Fatal(err)
+	}
+	back, errs := LoadLibrary(path)
+	if len(errs) != 0 {
+		t.Fatal(errs)
+	}
+	if !reflect.DeepEqual(back, lib) {
+		t.Fatalf("round trip gave %+v", back)
 	}
 }

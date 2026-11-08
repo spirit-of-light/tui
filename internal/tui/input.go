@@ -94,6 +94,7 @@ func (a *App) handleKey(k vim.Key) tea.Cmd {
 		if k.IsRune('[') {
 			a.maybeWikilinkCompletion(buf)
 		}
+		a.refreshSnippetMenu(buf)
 		a.refreshTagMenu(buf)
 		return a.afterKey()
 	}

@@ -95,6 +95,7 @@ func helpLines(a *App, filter string) []string {
 		"Ctrl+L\tToggle the checkbox on the line (also in insert mode; while a snippet is open, the next stop)",
 		"Ctrl+N\tIn insert mode, expand the snippet whose trigger word ends at the cursor (otherwise word completion)",
 		"Ctrl+H\tWhile a snippet is open, the previous stop (elsewhere, backspace)",
+		"Snippet menu (opens as a trigger word is typed)\tCtrl+J / Ctrl+K or ↑↓ move, Tab expands the selected item, Ctrl+E dismisses",
 		"gd\tFollow the link under the cursor (wikilink, Markdown link or URL); missing notes are created on confirm",
 		"gx\tOpen the URL under the cursor in the browser",
 		"gy\tCopy the link under the cursor",

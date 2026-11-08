@@ -650,6 +650,15 @@ reloads it afterwards. In Vim mode, `Ctrl+Z` suspends to the shell.
   repeated number mirrors the first. `{{title}}`, `{{date}}`, `{{time}}`,
   `{{week}}` and `{{date:FORMAT}}` expand too. Write `\$` for a literal dollar
   sign. Typing over untouched default text replaces it.
+  As you type a trigger, a menu opens at the cursor with the matching
+  triggers and a preview of the selected expansion: `Ctrl+J`/`Ctrl+K` (or
+  ↑/↓) move, `Tab` expands the selected item, `Ctrl+E` dismisses it.
+  The snippet keys are the `editor.snippet*` actions, so `[keymaps]` in
+  `config.toml` rebinds them (`:keymaps` lists the ids).
+  The `zn mcp` server (local, not hosted) offers `snippets_list` and
+  `snippet_create`, and its instructions explain the syntax, so an agent can
+  add snippets for you. Those tools write the same `snippets.toml`, and
+  `snippet_create` needs full, unrestricted access.
 - Side panels: Outline (`Space p`), Connections with backlinks
   (`:connections`), Calendar (`Space c`), Comments (`:comments`). Comments
   support anchors, replies, edit/delete, resolve/reopen and a scrollable
