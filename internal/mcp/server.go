@@ -211,7 +211,8 @@ func sortByUpdated(notes []vault.NoteMeta) {
 func tools() []toolDef {
 	out := coreTools()
 	out = append(out, assetTools()...)
-	return append(out, workTools()...)
+	out = append(out, workTools()...)
+	return append(out, snippetTools()...)
 }
 
 func coreTools() []toolDef {
@@ -1323,7 +1324,7 @@ func BuildServer(opts Options) *sdk.Server {
 		vaults.served = nil
 		vaults.scoped = true
 	} else {
-		instructions = ResolveInstructions()
+		instructions = ResolveInstructions() + snippetInstructionsFor()
 	}
 	if opts.Scope != nil && opts.Scope.Active() {
 		instructions += scopeInstructions(*opts.Scope)
@@ -1348,6 +1349,10 @@ func BuildServer(opts Options) *sdk.Server {
 		if !toolAllowed(def.name, opts.Scope) || (opts.Hosted && !hostedToolAllowed(def.name, opts.Scope)) {
 			continue
 		}
+		// Snippets belong to the machine the server runs on, not to a hosted vault.
+		if opts.Hosted && snippetToolNames[def.name] {
+			continue
+		}
 		server.AddTool(&sdk.Tool{
 			Name:        def.name,
 			Description: def.description,
@@ -1363,6 +1368,18 @@ func BuildServer(opts Options) *sdk.Server {
 				if a == nil {
 					a = map[string]any{}
 				}
+			}
+			// Snippets are the user's own config, so they need no vault.
+			if snippetToolNames[def.name] {
+				result, err := def.handler(ctx, args(a), nil)
+				if err != nil {
+					return errorResult("Error: " + err.Error()), nil
+				}
+				payload, err := Payload(result)
+				if err != nil {
+					return errorResult("Error: " + err.Error()), nil
+				}
+				return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: payload}}}, nil
 			}
 			b, move, err := vaults.backendFor(ctx, def.name == "vault_info")
 			if err != nil {

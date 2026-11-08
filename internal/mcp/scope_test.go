@@ -154,6 +154,11 @@ func listedTools(t *testing.T, cs *sdk.ClientSession) map[string]*sdk.Tool {
 	}
 	out := map[string]*sdk.Tool{}
 	for _, tool := range res.Tools {
+		// The snippet tools are local-only additions. The shared vault contract
+		// (testdata/mcp-scope.json) describes the vault tools every server offers.
+		if snippetToolNames[tool.Name] {
+			continue
+		}
 		out[tool.Name] = tool
 	}
 	return out
@@ -371,8 +376,14 @@ func TestScopedWritesStayInsideTheScope(t *testing.T) {
 func TestScopeListsOnlyTheToolsItOffers(t *testing.T) {
 	root := seedScopedVault(t)
 	full := listedTools(t, runScoped(t, root, nil))
-	if len(full) != len(tools()) {
-		t.Fatalf("full access lists %d of %d tools", len(full), len(tools()))
+	vaultTools := 0
+	for _, d := range tools() {
+		if !snippetToolNames[d.name] {
+			vaultTools++
+		}
+	}
+	if len(full) != vaultTools {
+		t.Fatalf("full access lists %d of %d vault tools", len(full), vaultTools)
 	}
 	if !full["read_note"].Annotations.ReadOnlyHint || *full["delete_note"].Annotations.DestructiveHint != true || *full["append_to_note"].Annotations.DestructiveHint {
 		t.Fatal("annotations")

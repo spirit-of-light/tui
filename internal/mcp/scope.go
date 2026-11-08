@@ -163,6 +163,9 @@ const (
 // toolClasses says what each tool needs. A tool missing here is treated as
 // classUnscopedWrite, and a test fails until it is classified.
 var toolClasses = map[string]toolClass{
+	// The snippet tools act on the user's own snippets.toml, not on a vault.
+	"snippets_list":      classRead,
+	"snippet_create":     classUnscopedWrite,
 	"vault_info":         classRead,
 	"list_notes":         classRead,
 	"list_folders":       classRead,
