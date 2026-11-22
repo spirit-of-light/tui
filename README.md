@@ -865,6 +865,28 @@ dismisses, and typing narrows the list. Inside a frontmatter `tags:` value
 the same menu completes bare tags. `Ctrl+X Ctrl+O` opens it on demand, with
 every tag when nothing is typed yet.
 
+### Snippets
+
+A snippet is a short word that expands into a block of text. The text can
+have tabstops that you fill in one after the other. zn reads the snippets of a
+local vault from files in `.zennotes/snippets/`. Each file `<group>.md` is a
+group. A heading of level 2 is the trigger, the first paragraph is the
+description, and the first fenced block is the body. zn reloads a file when it
+changes.
+
+Type the start of a trigger in insert mode and press the trigger key. With Vim
+on, the key is `Ctrl+N`. With Vim off, the key is `Tab`. One match expands at
+once. Two or more matches open a list under the word. In the list, `Ctrl+N`
+and `Tab` select the next item, `Ctrl+P` and `Shift+Tab` select the previous
+item, `Enter` and `Ctrl+Y` use the item, and `Ctrl+E` puts back your text. If
+no trigger matches, the key has its usual function. `snippet.expand` in
+`[terminal.keymaps]` sets other keys.
+
+A vault on a server has no snippets. zn shows one message about this in a run,
+and the key keeps its usual function. `zn doctor` warns about a bad snippet or
+a duplicate trigger. See [the snippet guide](docs/snippets.md) for the body
+syntax, the smart-case match and the group-file format.
+
 ### What stays in the desktop app
 
 Workflows, Atlas, sharing, cloud sync, Harper grammar checks and image
@@ -903,7 +925,7 @@ layout choices do not change these terminal layouts.
 | `[view]` | `tasks_view_mode`, `kanban_group_by`, `kanban_statuses`, `note_sort_order` |
 | `[appearance]` | `theme_family`, `theme_mode`, `theme_id` |
 | `[tweaks]` | `accent = "#ff3b30"`: the desktop's Quick tweaks colors |
-| `[terminal]` | `mouse`, `autosave`, `preview_style`, `images`, `theme`, `math`, `render_timeout`, `render_concurrency`, `view_mode_field`, `[terminal.view_mode_rules]` and `[terminal.keymaps]` (terminal only). `[terminal.keymaps]` contains the keys of the snippet session. |
+| `[terminal]` | `mouse`, `autosave`, `preview_style`, `images`, `theme`, `math`, `render_timeout`, `render_concurrency`, `view_mode_field`, `[terminal.view_mode_rules]` and `[terminal.keymaps]` (terminal only). `[terminal.keymaps]` contains the keys of `snippet.expand` and of the snippet session. |
 | `[keymaps]` | `"action.id" = "keys"`, or `""` to unbind; `:keymaps` lists the ids |
 | `[kanban_column_titles]` | `review = "In Review"` |
 | `[saved_filters]` | `Important = "!high"` |
