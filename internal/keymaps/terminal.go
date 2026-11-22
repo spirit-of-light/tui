@@ -9,16 +9,27 @@ import (
 // TerminalEntry is one zn-only action. The desktop app has no such action,
 // so these ids stay out of Catalog and live in the `[terminal.keymaps]`
 // table of config.toml. An action can have more than one key.
+//
+// Modes is parallel to Bindings. A default key with the mode "vim" acts only
+// with Vim on, "plain" acts only with Vim off, and "" acts in both modes.
+// An empty Modes means every default key acts in both modes.
 type TerminalEntry struct {
 	ID       string
 	Title    string
 	Bindings []string
+	Modes    []string
 }
+
+const (
+	modeVim   = "vim"
+	modePlain = "plain"
+)
 
 // TerminalCatalog lists the zn-only actions with their default keys.
 var TerminalCatalog = []TerminalEntry{
-	{"snippet.nextTabstop", "Next snippet tabstop", []string{"Ctrl+L", "Tab"}},
-	{"snippet.prevTabstop", "Previous snippet tabstop", []string{"Ctrl+H", "Shift+Tab"}},
+	{ID: "snippet.expand", Title: "Expand a snippet", Bindings: []string{"Ctrl+N", "Tab"}, Modes: []string{modeVim, modePlain}},
+	{ID: "snippet.nextTabstop", Title: "Next snippet tabstop", Bindings: []string{"Ctrl+L", "Tab"}},
+	{ID: "snippet.prevTabstop", Title: "Previous snippet tabstop", Bindings: []string{"Ctrl+H", "Shift+Tab"}},
 }
 
 // TerminalResolver answers "which keys does this zn-only action have" with
@@ -57,6 +68,66 @@ func (r *TerminalResolver) Keys(id string) [][]vim.Key {
 	for _, b := range r.Bindings(id) {
 		if keys, ok := ParseKeys(b); ok && len(keys) > 0 {
 			out = append(out, keys)
+		}
+	}
+	return out
+}
+
+// Overridden is true when config.toml or a command set the keys of the
+// action, also when the list is empty.
+func (r *TerminalResolver) Overridden(id string) bool {
+	_, ok := r.overrides[id]
+	return ok
+}
+
+// KeysFor is the key sequences of an action that act with Vim on or off. An
+// override acts in both modes. A default key acts in the mode of its entry.
+func (r *TerminalResolver) KeysFor(id string, vimOn bool) [][]vim.Key {
+	var out [][]vim.Key
+	for _, b := range r.bindingsFor(id, vimOn) {
+		if keys, ok := ParseKeys(b); ok && len(keys) > 0 {
+			out = append(out, keys)
+		}
+	}
+	return out
+}
+
+func (r *TerminalResolver) bindingsFor(id string, vimOn bool) []string {
+	if r.Overridden(id) {
+		return r.Bindings(id)
+	}
+	e := r.byID[id]
+	want := modePlain
+	if vimOn {
+		want = modeVim
+	}
+	var out []string
+	for i, b := range e.Bindings {
+		if i >= len(e.Modes) || e.Modes[i] == "" || e.Modes[i] == want {
+			out = append(out, b)
+		}
+	}
+	return out
+}
+
+// Labels is the display text of the keys of an action. A default key with a
+// mode shows the mode, as in "Ctrl+N (Vim)". An override shows plain keys.
+func (r *TerminalResolver) Labels(id string) []string {
+	if r.Overridden(id) {
+		return r.Bindings(id)
+	}
+	e := r.byID[id]
+	out := make([]string, 0, len(e.Bindings))
+	for i, b := range e.Bindings {
+		switch {
+		case i >= len(e.Modes):
+			out = append(out, b)
+		case e.Modes[i] == modeVim:
+			out = append(out, b+" (Vim)")
+		case e.Modes[i] == modePlain:
+			out = append(out, b+" (no Vim)")
+		default:
+			out = append(out, b)
 		}
 	}
 	return out

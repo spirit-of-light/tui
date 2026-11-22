@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ZenNotes/tui/internal/keymaps"
 	"github.com/ZenNotes/tui/internal/vim"
 )
 
@@ -47,7 +48,7 @@ func TestKeymapListTerminalSection(t *testing.T) {
 	p := keymapPalette(t, a)
 	terminal := 0
 	for _, it := range p.items {
-		isTerminal := it.id == "snippet.nextTabstop" || it.id == "snippet.prevTabstop"
+		isTerminal := isTerminalAction(it.id)
 		if isTerminal {
 			terminal++
 			if it.section != "Terminal" || !strings.Contains(it.detail, "zn only") {
@@ -57,8 +58,8 @@ func TestKeymapListTerminalSection(t *testing.T) {
 			t.Fatalf("catalog id %s is in the Terminal section", it.id)
 		}
 	}
-	if terminal != 2 {
-		t.Fatalf("%d terminal items, want 2", terminal)
+	if terminal != len(keymaps.TerminalCatalog) {
+		t.Fatalf("%d terminal items, want %d", terminal, len(keymaps.TerminalCatalog))
 	}
 	for _, ch := range "tabstop" {
 		p.handleKey(a, vim.Key{Rune: ch})

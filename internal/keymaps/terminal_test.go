@@ -19,7 +19,11 @@ func TestTerminalKeymapDefaults(t *testing.T) {
 		t.Error("Known gives the wrong answer")
 	}
 	entries := r.Entries()
-	if len(entries) != 2 || entries[0].Title != "Next snippet tabstop" || entries[1].Title != "Previous snippet tabstop" {
+	titles := map[string]string{}
+	for _, e := range entries {
+		titles[e.ID] = e.Title
+	}
+	if titles["snippet.nextTabstop"] != "Next snippet tabstop" || titles["snippet.prevTabstop"] != "Previous snippet tabstop" || titles["snippet.expand"] != "Expand a snippet" {
 		t.Errorf("Entries = %+v", entries)
 	}
 }
@@ -100,5 +104,63 @@ func TestTerminalKeymapParseKeys(t *testing.T) {
 	}
 	if keys, ok := ParseKeys("g t"); !ok || len(keys) != 2 {
 		t.Errorf("g t = %v %v", keys, ok)
+	}
+}
+
+func TestTerminalKeymapExpandDefaults(t *testing.T) {
+	r := NewTerminalResolver(nil)
+	ctrlN := [][]vim.Key{{{Rune: 'n', Ctrl: true}}}
+	tab := [][]vim.Key{{{Name: "tab"}}}
+	if got := r.KeysFor("snippet.expand", true); !reflect.DeepEqual(got, ctrlN) {
+		t.Errorf("Vim on = %+v, want Ctrl+N only", got)
+	}
+	if got := r.KeysFor("snippet.expand", false); !reflect.DeepEqual(got, tab) {
+		t.Errorf("Vim off = %+v, want Tab only", got)
+	}
+	if r.Overridden("snippet.expand") {
+		t.Error("a default action is not overridden")
+	}
+	if got, want := r.Labels("snippet.expand"), []string{"Ctrl+N (Vim)", "Tab (no Vim)"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Labels = %v, want %v", got, want)
+	}
+}
+
+func TestTerminalKeymapExpandOverride(t *testing.T) {
+	r := NewTerminalResolver(map[string][]string{"snippet.expand": {"Alt+S"}})
+	want := [][]vim.Key{{{Rune: 's', Alt: true}}}
+	for _, vimOn := range []bool{true, false} {
+		if got := r.KeysFor("snippet.expand", vimOn); !reflect.DeepEqual(got, want) {
+			t.Errorf("vim=%v: %+v, want Alt+S", vimOn, got)
+		}
+	}
+	if !r.Overridden("snippet.expand") {
+		t.Error("an override must show as overridden")
+	}
+	if got, want := r.Labels("snippet.expand"), []string{"Alt+S"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Labels = %v, want %v", got, want)
+	}
+	r = NewTerminalResolver(map[string][]string{"snippet.expand": {""}})
+	for _, vimOn := range []bool{true, false} {
+		if got := r.KeysFor("snippet.expand", vimOn); len(got) != 0 {
+			t.Errorf("vim=%v: an empty override left keys %+v", vimOn, got)
+		}
+	}
+	if !r.Overridden("snippet.expand") {
+		t.Error("an empty override is still an override")
+	}
+}
+
+func TestTerminalKeymapExpandSessionKeysKeepModes(t *testing.T) {
+	r := NewTerminalResolver(nil)
+	for _, vimOn := range []bool{true, false} {
+		if got := r.KeysFor("snippet.nextTabstop", vimOn); !reflect.DeepEqual(got, r.Keys("snippet.nextTabstop")) {
+			t.Errorf("vim=%v: next keys changed: %+v", vimOn, got)
+		}
+		if got := r.KeysFor("snippet.prevTabstop", vimOn); !reflect.DeepEqual(got, r.Keys("snippet.prevTabstop")) {
+			t.Errorf("vim=%v: prev keys changed: %+v", vimOn, got)
+		}
+	}
+	if got, want := r.Labels("snippet.nextTabstop"), []string{"Ctrl+L", "Tab"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Labels = %v, want %v", got, want)
 	}
 }
