@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ZenNotes/tui/internal/keymaps"
+	"github.com/ZenNotes/tui/internal/snippet"
 	"github.com/ZenNotes/tui/internal/templates"
 	"github.com/ZenNotes/tui/internal/vim"
 )
@@ -21,6 +22,24 @@ type snippetOwner struct {
 	buf  *noteBuffer
 }
 
+// snippetVars gives the resolver for the variables of a snippet body. The
+// values come from the note and the clock, in the same way as for a template.
+func (a *App) snippetVars(buf *noteBuffer) snippet.Resolver {
+	meta, _ := a.noteMeta(buf.path)
+	now := snippetNow()
+	return func(name, arg string, hasArg bool) (string, bool) {
+		return templates.Variable(name, arg, hasArg, meta.Title, now, "en")
+	}
+}
+
+// recordSnippetOwner records the pane, tab and buffer that own the session of
+// buf, when an expansion has started one.
+func (a *App) recordSnippetOwner(buf *noteBuffer) {
+	if buf.ed.SnippetActive() {
+		a.snippetOwner = snippetOwner{pane: a.activePane, tab: a.activeTab(), buf: buf}
+	}
+}
+
 // expandSnippet inserts the expansion of body at the cursor of buf. The
 // variables take their values from the note and the clock, in the same way
 // as a template does. When the body starts a session, the App records the
@@ -29,15 +48,8 @@ func (a *App) expandSnippet(buf *noteBuffer, body string) {
 	if buf == nil {
 		return
 	}
-	meta, _ := a.noteMeta(buf.path)
-	now := snippetNow()
-	vars := func(name, arg string, hasArg bool) (string, bool) {
-		return templates.Variable(name, arg, hasArg, meta.Title, now, "en")
-	}
-	buf.ed.ExpandSnippet(body, vars)
-	if buf.ed.SnippetActive() {
-		a.snippetOwner = snippetOwner{pane: a.activePane, tab: a.activeTab(), buf: buf}
-	}
+	buf.ed.ExpandSnippet(body, a.snippetVars(buf))
+	a.recordSnippetOwner(buf)
 }
 
 // snippetKey handles the keys of a running snippet session: the keys of the

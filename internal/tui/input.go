@@ -76,7 +76,7 @@ func (a *App) handleKey(k vim.Key) tea.Cmd {
 		editing = m == vim.ModeInsert || m == vim.ModeReplace || m == vim.ModeCmdline || !a.prefs.VimMode
 	}
 	if editing {
-		if a.completionKey(buf, k) || a.snippetKey(buf, k) || a.chordKey(k, true) {
+		if a.completionKey(buf, k) || a.snippetKey(buf, k) || a.snippetTriggerKey(buf, k) || a.chordKey(k, true) {
 			return a.afterKey()
 		}
 		if buf.loading {
