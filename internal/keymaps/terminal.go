@@ -84,6 +84,31 @@ func (r *TerminalResolver) Known(id string) bool {
 	return ok
 }
 
+// SplitTerminalKeys splits the text of a `:bind` command for a zn-only
+// action into key strings. A comma directly after "+" is part of a key
+// (`Ctrl+,`). Any other comma separates two keys, and the spaces around it
+// do not count. A space inside a key still separates the keys of a
+// sequence (`Space n`). Empty parts are dropped.
+func SplitTerminalKeys(s string) []string {
+	var out []string
+	var cur []rune
+	flush := func() {
+		if f := strings.Fields(string(cur)); len(f) > 0 {
+			out = append(out, strings.Join(f, " "))
+		}
+		cur = cur[:0]
+	}
+	for _, r := range s {
+		if r == ',' && (len(cur) == 0 || cur[len(cur)-1] != '+') {
+			flush()
+			continue
+		}
+		cur = append(cur, r)
+	}
+	flush()
+	return out
+}
+
 // Entries lists TerminalCatalog with the overrides applied.
 func (r *TerminalResolver) Entries() []TerminalEntry {
 	out := make([]TerminalEntry, 0, len(TerminalCatalog))

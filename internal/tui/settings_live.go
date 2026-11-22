@@ -119,7 +119,46 @@ func (a *App) editConfig() error {
 	a.execOnTerminal(cmd, func(err error) tea.Msg { return configEditedMsg{err} })
 	return nil
 }
+
+// isTerminalAction is true for the id of a zn-only action. These actions
+// have their keys in [terminal.keymaps], not in [keymaps].
+func isTerminalAction(id string) bool {
+	for _, e := range keymaps.TerminalCatalog {
+		if e.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// saveTerminalKeymap writes the keys of a zn-only action. The text goes
+// through the comma rule of SplitTerminalKeys, and a key that zn cannot
+// read stops the write.
+func (a *App) saveTerminalKeymap(id, text string) error {
+	keys := keymaps.SplitTerminalKeys(text)
+	for _, k := range keys {
+		if _, ok := keymaps.ParseKeys(k); !ok {
+			return fmt.Errorf("zn cannot read the key %q", k)
+		}
+	}
+	if a.terminalKeys == nil {
+		a.terminalKeys = keymaps.NewTerminalResolver(nil)
+	}
+	previous := a.terminalKeys.Bindings(id)
+	a.terminalKeys.Set(id, keys)
+	if a.prefsLoaded {
+		if err := config.SetTerminalKeymap(id, keys); err != nil {
+			a.terminalKeys.Set(id, previous)
+			return err
+		}
+		return a.reloadPreferences()
+	}
+	return nil
+}
 func (a *App) saveKeymap(id, binding string) error {
+	if isTerminalAction(id) {
+		return a.saveTerminalKeymap(id, binding)
+	}
 	previous := a.keymap.Overrides()[id]
 	if !a.keymap.Set(id, binding) {
 		return fmt.Errorf("unknown action id: %s (see :keymaps)", id)

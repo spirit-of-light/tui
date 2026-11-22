@@ -562,6 +562,10 @@ func (a *App) commandTable() []command {
 			if len(p) < 2 {
 				return fmt.Errorf("usage: :bind <action id> <keys>")
 			}
+			if isTerminalAction(p[0]) {
+				// The comma rule needs the raw text after the id.
+				return a.saveKeymap(p[0], strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(c.Args), p[0])))
+			}
 			return a.saveKeymap(p[0], strings.Join(p[1:], " "))
 		}},
 		{names: []string{"keymaps", "keys"}, title: "Show keymap actions", palette: true, run: func(a *App, _ *noteBuffer, _ vim.ExCommand) error {

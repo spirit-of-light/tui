@@ -63,6 +63,34 @@ func TestTerminalKeymapKeys(t *testing.T) {
 	}
 }
 
+func TestSplitTerminalKeys(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{"Alt+N", []string{"Alt+N"}},
+		{"Alt+N, Space n", []string{"Alt+N", "Space n"}},
+		{"Ctrl+,", []string{"Ctrl+,"}},
+		{"Ctrl+,, Tab", []string{"Ctrl+,", "Tab"}},
+		{"Alt+N ,Alt+M", []string{"Alt+N", "Alt+M"}},
+		{"Alt+N,Alt+M", []string{"Alt+N", "Alt+M"}},
+		{"  Alt+N  ", []string{"Alt+N"}},
+		{"  Space   n ,  Alt+M  ", []string{"Space n", "Alt+M"}},
+		{"Alt+N,", []string{"Alt+N"}},
+		{"", nil},
+		{"   ", nil},
+	}
+	for _, c := range cases {
+		got := SplitTerminalKeys(c.in)
+		if len(got) == 0 && len(c.want) == 0 {
+			continue
+		}
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("SplitTerminalKeys(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
 func TestTerminalKeymapParseKeys(t *testing.T) {
 	if keys, ok := ParseKeys(""); !ok || keys != nil {
 		t.Errorf("empty = %v %v", keys, ok)
