@@ -53,6 +53,10 @@ var helpSections = []helpSection{
 		{"search-title <q>", "Match notes by title (substring)", "--json"},
 		{"backlinks <path>", "Notes linking to this one via [[wikilink]]", "--json"},
 	}},
+	{"LINKS", []helpRow{
+		{"autolink <path>", "Add a [[link]] at the first reference to each other note. You review the changes first", ""},
+		{"autolink --all", "Do the same for each live note in the vault. You review the changes first", ""},
+	}},
 	{"FOLDERS", []helpRow{
 		{"folder list", "List every subfolder in the vault", "--json"},
 		{"folder create <p>", "Create a subfolder, e.g. inbox/Work", ""},

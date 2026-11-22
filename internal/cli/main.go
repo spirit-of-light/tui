@@ -60,6 +60,7 @@ func dispatchTable() map[string]Handler {
 		"base convert":    cmdBaseConvert,
 		"base pages":      cmdBasePages,
 		"capture":         cmdCapture,
+		"autolink":        cmdAutolink,
 	}
 }
 

@@ -25,7 +25,15 @@ func commandSpecs() map[string]commandSpec {
 		for _, row := range section.rows {
 			parts := strings.Fields(row.name)
 			name := parts[0]
-			if len(parts) > 1 && !strings.ContainsAny(parts[1], "<[\"") {
+			// A second word that is a flag shows one more form of the same
+			// command. It adds the flag and no command.
+			if len(parts) > 1 && strings.HasPrefix(parts[1], "--") {
+				if spec, ok := out[name]; ok {
+					spec.Flags[strings.TrimPrefix(parts[1], "--")] = false
+					continue
+				}
+			}
+			if len(parts) > 1 && !strings.ContainsAny(parts[1], "<[\"") && !strings.HasPrefix(parts[1], "--") {
 				name += " " + parts[1]
 			}
 			flags := map[string]bool{}
@@ -170,6 +178,10 @@ func validatePositionals(spec commandSpec, args Args) error {
 		minimum, maximum = 0, 1
 	case "use", "vault use":
 		minimum = 0
+	case "autolink":
+		if args.Bool("all") {
+			minimum, maximum = 0, 0
+		}
 	}
 	if spec.Flags["path"] && args.Str("path") != "" {
 		minimum--
