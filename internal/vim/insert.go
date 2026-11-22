@@ -172,6 +172,7 @@ func (e *Editor) finishInsert() {
 	e.mode = ModeNormal
 	e.cursor = e.buf.clampNormal(e.cursor)
 	e.ins = insertState{}
+	e.sessions = nil
 	e.commitChange()
 	if e.recordingIns && !wasReplaying {
 		keys := e.changeKeys
@@ -566,11 +567,11 @@ func (e *Editor) plainKey(k Key) bool {
 			e.insertDelete()
 		}
 	default:
-		e.commitChange()
+		e.commitUnlessSnippet()
 		return false
 	}
 	if commitAfter {
-		e.commitChange()
+		e.commitUnlessSnippet()
 	}
 	e.ensureCursorVisible()
 	return true

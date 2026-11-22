@@ -388,6 +388,7 @@ func (e *Editor) SetCursor(p Pos) {
 
 // SetText replaces the text and resets history.
 func (e *Editor) SetText(text string) {
+	e.sessions = nil
 	e.buf.SetText(text)
 	e.undoStack, e.redoStack, e.active = nil, nil, nil
 	e.undone = false
@@ -403,6 +404,7 @@ func (e *Editor) SetText(text string) {
 // ReplaceText swaps the text in as a change (undoable) keeping the cursor
 // where it was where possible, for a note reloaded from disk.
 func (e *Editor) ReplaceText(text string) {
+	e.endSessions()
 	e.beginChange()
 	e.buf.SetText(text)
 	e.cursor = e.buf.clampNormal(e.cursor)
@@ -416,6 +418,7 @@ func (e *Editor) ReplaceText(text string) {
 // change: the placeholder it replaces leaves the history, so undo stops at the
 // loaded text. The cursor stays where it was where possible.
 func (e *Editor) LoadText(text string) {
+	e.sessions = nil
 	e.buf.SetText(text)
 	e.undoStack, e.redoStack, e.active = nil, nil, nil
 	e.undone = false
@@ -501,6 +504,7 @@ func sameLines(a, b [][]rune) bool {
 
 // Undo reverts the last change.
 func (e *Editor) Undo() {
+	e.endSessions()
 	e.commitChange()
 	if len(e.undoStack) == 0 {
 		e.setError("Already at oldest change")
@@ -521,6 +525,7 @@ func (e *Editor) Undo() {
 
 // Redo re-applies an undone change.
 func (e *Editor) Redo() {
+	e.endSessions()
 	e.commitChange()
 	if len(e.redoStack) == 0 {
 		e.setError("Already at newest change")

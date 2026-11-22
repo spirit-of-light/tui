@@ -198,5 +198,34 @@ func (e *Editor) SnippetPrev() {
 func (e *Editor) popSession() {
 	if n := len(e.sessions); n > 0 {
 		e.sessions = e.sessions[:n-1]
+		if n == 1 && !e.opts.VimEnabled {
+			e.commitChange()
+		}
+	}
+}
+
+// EndSnippets ends every running session. Vim leaves insert mode only
+// through its own keys, so the mode does not change.
+func (e *Editor) EndSnippets() {
+	e.endSessions()
+}
+
+// endSessions drops all sessions. Without Vim, the change that the sessions
+// kept open commits now, so one undo takes the whole snippet.
+func (e *Editor) endSessions() {
+	if len(e.sessions) == 0 {
+		return
+	}
+	e.sessions = nil
+	if !e.opts.VimEnabled {
+		e.commitChange()
+	}
+}
+
+// commitUnlessSnippet commits the open change of plain editing, except while
+// a session runs: the change then stays open until the last session ends.
+func (e *Editor) commitUnlessSnippet() {
+	if len(e.sessions) == 0 {
+		e.commitChange()
 	}
 }
