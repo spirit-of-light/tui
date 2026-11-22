@@ -171,3 +171,140 @@ func TestTerminalKeymapsPrefsKeepOtherTables(t *testing.T) {
 		t.Fatal("a terminal action must stay out of [keymaps]")
 	}
 }
+
+// setupTerminalConfig writes a config.toml with the given text and returns its path.
+func setupTerminalConfig(t *testing.T, text string) string {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("ZENNOTES_CONFIG_DIR", dir)
+	path := filepath.Join(dir, "config.toml")
+	if text != "" {
+		if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return path
+}
+
+func readConfigFile(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func TestSetTerminalKeymapOneKey(t *testing.T) {
+	path := setupTerminalConfig(t, "[keymaps]\n\"global.toggleSidebar\" = \"Alt+B\"\n")
+	if err := SetTerminalKeymap("snippet.nextTabstop", []string{"Alt+N"}); err != nil {
+		t.Fatal(err)
+	}
+	text := readConfigFile(t, path)
+	if !strings.Contains(text, `"snippet.nextTabstop" = "Alt+N"`) {
+		t.Fatalf("missing string value:\n%s", text)
+	}
+	if !strings.Contains(text, `"global.toggleSidebar" = "Alt+B"`) {
+		t.Fatalf("[keymaps] changed:\n%s", text)
+	}
+	p, _, err := LoadPrefs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"Alt+N"}; !reflect.DeepEqual(p.TerminalKeymapOverrides["snippet.nextTabstop"], want) {
+		t.Fatalf("reload = %v", p.TerminalKeymapOverrides)
+	}
+}
+
+func TestSetTerminalKeymapNoKeys(t *testing.T) {
+	path := setupTerminalConfig(t, "")
+	if err := SetTerminalKeymap("snippet.nextTabstop", nil); err != nil {
+		t.Fatal(err)
+	}
+	if text := readConfigFile(t, path); !strings.Contains(text, `"snippet.nextTabstop" = ""`) {
+		t.Fatalf("missing empty string:\n%s", text)
+	}
+	p, _, err := LoadPrefs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys, ok := p.TerminalKeymapOverrides["snippet.nextTabstop"]
+	if !ok || len(keys) != 0 {
+		t.Fatalf("reload = %v", p.TerminalKeymapOverrides)
+	}
+}
+
+func TestSetTerminalKeymapTwoKeys(t *testing.T) {
+	path := setupTerminalConfig(t, "")
+	if err := SetTerminalKeymap("snippet.nextTabstop", []string{"Alt+N", "Space n"}); err != nil {
+		t.Fatal(err)
+	}
+	if text := readConfigFile(t, path); !strings.Contains(text, `"snippet.nextTabstop" = ["Alt+N", "Space n"]`) {
+		t.Fatalf("missing array:\n%s", text)
+	}
+	p, _, err := LoadPrefs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"Alt+N", "Space n"}; !reflect.DeepEqual(p.TerminalKeymapOverrides["snippet.nextTabstop"], want) {
+		t.Fatalf("reload = %v", p.TerminalKeymapOverrides)
+	}
+}
+
+func TestSetTerminalKeymapCommaKey(t *testing.T) {
+	path := setupTerminalConfig(t, "")
+	if err := SetTerminalKeymap("snippet.nextTabstop", []string{"Ctrl+,"}); err != nil {
+		t.Fatal(err)
+	}
+	if text := readConfigFile(t, path); !strings.Contains(text, `"snippet.nextTabstop" = "Ctrl+,"`) {
+		t.Fatalf("comma key is not one string:\n%s", text)
+	}
+	if err := SetTerminalKeymap("snippet.prevTabstop", []string{"Ctrl+,", "Tab"}); err != nil {
+		t.Fatal(err)
+	}
+	if text := readConfigFile(t, path); !strings.Contains(text, `"snippet.prevTabstop" = ["Ctrl+,", "Tab"]`) {
+		t.Fatalf("missing array:\n%s", text)
+	}
+}
+
+func TestSetTerminalKeymapStringReplacesArray(t *testing.T) {
+	path := setupTerminalConfig(t, "[terminal.keymaps]\n\"snippet.nextTabstop\" = [\"Alt+N\", \"Alt+M\"]\n")
+	if err := SetTerminalKeymap("snippet.nextTabstop", []string{"Alt+M"}); err != nil {
+		t.Fatal(err)
+	}
+	text := readConfigFile(t, path)
+	if !strings.Contains(text, `"snippet.nextTabstop" = "Alt+M"`) || strings.Contains(text, "Alt+N") {
+		t.Fatalf("array not replaced:\n%s", text)
+	}
+}
+
+func TestSetTerminalKeymapKeepsOtherTables(t *testing.T) {
+	path := setupTerminalConfig(t, "[terminal]\nmath = \"latex\"\n\n[terminal.view_mode_rules]\n\"tag:x\" = \"edit\"\n\n[keymaps]\n\"global.toggleSidebar\" = \"Alt+B\"\n")
+	if err := SetTerminalKeymap("snippet.prevTabstop", []string{"Alt+P"}); err != nil {
+		t.Fatal(err)
+	}
+	text := readConfigFile(t, path)
+	for _, want := range []string{`math = "latex"`, `"tag:x" = "edit"`, `"global.toggleSidebar" = "Alt+B"`, `"snippet.prevTabstop" = "Alt+P"`} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("lost %q:\n%s", want, text)
+		}
+	}
+}
+
+func TestSetTerminalKeymapRefusesNonTable(t *testing.T) {
+	path := setupTerminalConfig(t, "terminal = 5\n")
+	if err := SetTerminalKeymap("snippet.nextTabstop", []string{"Alt+N"}); err == nil {
+		t.Fatal("expected an error when terminal is not a table")
+	}
+	if text := readConfigFile(t, path); text != "terminal = 5\n" {
+		t.Fatalf("file changed:\n%s", text)
+	}
+	path = setupTerminalConfig(t, "[terminal]\nkeymaps = \"x\"\n")
+	before := readConfigFile(t, path)
+	if err := SetTerminalKeymap("snippet.nextTabstop", []string{"Alt+N"}); err == nil {
+		t.Fatal("expected an error when terminal.keymaps is not a table")
+	}
+	if readConfigFile(t, path) != before {
+		t.Fatal("file changed")
+	}
+}

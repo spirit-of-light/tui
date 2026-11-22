@@ -35,6 +35,41 @@ func SetValue(section, key string, value any) error {
 	})
 }
 
+// SetTerminalKeymap writes the keys of one zn-only action into
+// [terminal.keymaps]. No key writes "", one key writes a string, and two or
+// more keys write a list. Every other key and table stays as it is.
+func SetTerminalKeymap(id string, keys []string) error {
+	return UpdateConfig(func(doc map[string]any) error {
+		raw, exists := doc["terminal"]
+		terminal, ok := raw.(map[string]any)
+		if exists && !ok {
+			return fmt.Errorf("terminal is not a config table")
+		}
+		if !exists {
+			terminal = map[string]any{}
+		}
+		raw, exists = terminal["keymaps"]
+		table, ok := raw.(map[string]any)
+		if exists && !ok {
+			return fmt.Errorf("terminal.keymaps is not a config table")
+		}
+		if !exists {
+			table = map[string]any{}
+		}
+		switch len(keys) {
+		case 0:
+			table[id] = ""
+		case 1:
+			table[id] = keys[0]
+		default:
+			table[id] = append([]string(nil), keys...)
+		}
+		terminal["keymaps"] = table
+		doc["terminal"] = terminal
+		return nil
+	})
+}
+
 // SetViewModeRule adds or changes one [terminal.view_mode_rules] entry,
 // keeping every other key and table. An entry already in the file for the
 // same field and value, written in any case or quoting and valid or not,
