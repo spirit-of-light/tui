@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/ZenNotes/tui/internal/keymaps"
@@ -98,4 +100,18 @@ func (a *App) checkSnippetOwner() {
 	}
 	o.buf.ed.EndSnippets()
 	a.snippetOwner = snippetOwner{}
+}
+
+// warnTerminalKeymaps shows one error that lists the [terminal.keymaps]
+// entries zn ignored. It stays quiet when there is no problem or when the
+// set of problems is the one that the last call already showed.
+func (a *App) warnTerminalKeymaps(problems []string) {
+	if slices.Equal(problems, a.terminalKeymapWarned) {
+		return
+	}
+	a.terminalKeymapWarned = slices.Clone(problems)
+	if len(problems) == 0 {
+		return
+	}
+	a.notifyError("zn ignores these [terminal.keymaps] entries: " + strings.Join(problems, "; "))
 }

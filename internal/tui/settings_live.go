@@ -37,6 +37,7 @@ func (a *App) applyPreferences(p config.Prefs) {
 	}
 	a.keymap = keymaps.NewResolver(p.KeymapOverrides)
 	a.terminalKeys = keymaps.NewTerminalResolver(p.TerminalKeymapOverrides)
+	a.warnTerminalKeymaps(p.TerminalKeymapProblems)
 	if err := a.setTheme(sel); err != nil || selErr != nil {
 		a.notifyError(errors.Join(selErr, err).Error())
 	}

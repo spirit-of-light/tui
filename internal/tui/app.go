@@ -74,7 +74,10 @@ type App struct {
 	deferReads         bool
 	keymap             *keymaps.Resolver
 	terminalKeys       *keymaps.TerminalResolver
-	theme              Theme
+	// terminalKeymapWarned is the set of bad [terminal.keymaps] entries that the
+	// last warning named.
+	terminalKeymapWarned []string
+	theme                Theme
 	// themeSel is the selection the theme was resolved from; :theme edits it.
 	themeSel themes.Selection
 
@@ -263,6 +266,7 @@ func newApp(ctx context.Context, opts Options, prefs config.Prefs, systemDark bo
 	if err := a.setTheme(sel); err != nil || selErr != nil {
 		a.notifyError(errors.Join(selErr, err).Error())
 	}
+	a.warnTerminalKeymaps(prefs.TerminalKeymapProblems)
 	a.activePane = a.panes.leaves()[0]
 	a.sidebar = newSidebar(a)
 	a.outline = &outlinePanel{}
