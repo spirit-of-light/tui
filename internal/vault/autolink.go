@@ -110,9 +110,11 @@ func PlanAutolinks(body, self string, notes []NoteMeta, opts AutolinkOptions) []
 	mask := autolinkMask(body)
 	links := currentLinks(body, self, notes)
 
+	// The body is read once. Each target looks up its words in the index.
+	ix := newAutolinkIndex(body)
 	var matches []autolinkMatch
 	for ti, n := range targets {
-		for _, m := range targetMatches(body, mask, n, ti) {
+		for _, m := range targetMatches(ix, mask, n, ti) {
 			// A reference after the first link to the note changes nothing.
 			if ls := links[n.Path]; len(ls) == 0 || m.start < ls[0].Start {
 				matches = append(matches, m)
@@ -253,7 +255,7 @@ func targetIndex(targets []NoteMeta, path string) int {
 // targetMatches lists the matches of the title and the aliases of n outside
 // the mask. Where a title and an alias of n overlap, the earlier and longer
 // match stays.
-func targetMatches(body string, mask []bool, n NoteMeta, ti int) []autolinkMatch {
+func targetMatches(ix *autolinkIndex, mask []bool, n NoteMeta, ti int) []autolinkMatch {
 	var found []autolinkMatch
 	seen := map[string]bool{}
 	for _, phrase := range append([]string{n.Title}, n.Aliases...) {
@@ -262,7 +264,7 @@ func targetMatches(body string, mask []bool, n NoteMeta, ti int) []autolinkMatch
 			continue
 		}
 		seen[key] = true
-		for _, sp := range autolinkMatches(body, phrase) {
+		for _, sp := range ix.matches(phrase) {
 			if !spanMasked(mask, sp[0], sp[1]) {
 				found = append(found, autolinkMatch{start: sp[0], end: sp[1], target: ti})
 			}
