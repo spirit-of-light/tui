@@ -253,6 +253,46 @@ func TestPrefsAutosaveDefaultsOnAndTurnsOff(t *testing.T) {
 	}
 }
 
+// No key keeps the duplicate removal of the autolink command on.
+func TestAutolinkRemoveDuplicatesDefaultsOn(t *testing.T) {
+	t.Setenv("ZENNOTES_CONFIG_DIR", t.TempDir())
+	prefs, _, err := LoadPrefs()
+	if err != nil || !prefs.AutolinkRemoveDuplicates {
+		t.Fatalf("no file: remove duplicates %v, err %v", prefs.AutolinkRemoveDuplicates, err)
+	}
+	writeTerminalConfig(t, ``)
+	prefs, _, err = LoadPrefs()
+	if err != nil || !prefs.AutolinkRemoveDuplicates {
+		t.Fatalf("no key: remove duplicates %v, err %v", prefs.AutolinkRemoveDuplicates, err)
+	}
+}
+
+func TestAutolinkRemoveDuplicatesReadsTrueAndFalse(t *testing.T) {
+	for _, want := range []string{"true", "false"} {
+		writeTerminalConfig(t, "autolink_remove_duplicates = "+want)
+		prefs, _, err := LoadPrefs()
+		if err != nil || prefs.AutolinkRemoveDuplicates != (want == "true") {
+			t.Fatalf("value %v: got %v, err %v", want, prefs.AutolinkRemoveDuplicates, err)
+		}
+		if got := ValueTables(prefs)["terminal"]["autolink_remove_duplicates"]; got != (want == "true") {
+			t.Fatalf("value %v: the value table has %v, so zn config and :settings miss it", want, got)
+		}
+	}
+}
+
+// A string is a wrong-type error in doctor; zn keeps the default.
+func TestAutolinkRemoveDuplicatesWrongType(t *testing.T) {
+	writeTerminalConfig(t, `autolink_remove_duplicates = "no"`)
+	prefs, _, err := LoadPrefs()
+	if err != nil || !prefs.AutolinkRemoveDuplicates {
+		t.Fatalf("load: remove duplicates %v, err %v", prefs.AutolinkRemoveDuplicates, err)
+	}
+	err = ValidateConfig()
+	if err == nil || !strings.Contains(err.Error(), "terminal.autolink_remove_duplicates") || !strings.Contains(err.Error(), "wrong type") {
+		t.Fatalf("doctor: %v", err)
+	}
+}
+
 func TestPrefsAutosaveRejectsANonBoolean(t *testing.T) {
 	t.Setenv("ZENNOTES_CONFIG_DIR", t.TempDir())
 	if err := os.WriteFile(ConfigTomlPath(), []byte("[terminal]\nautosave = \"no\"\n"), 0o600); err != nil {

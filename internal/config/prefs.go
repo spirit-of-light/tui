@@ -73,8 +73,11 @@ type Prefs struct {
 	TerminalMouse bool
 	// Autosave writes notes shortly after typing stops and when they close.
 	// Off, a note reaches the disk only when saved by name, such as with :w.
-	Autosave     bool
-	PreviewStyle string
+	Autosave bool
+	// AutolinkRemoveDuplicates makes the autolink command change each later
+	// link to a note into plain text, so one link stays for each note.
+	AutolinkRemoveDuplicates bool
+	PreviewStyle             string
 	// TerminalImages is auto, kitty or off: whether the preview paints
 	// pictures with the Kitty graphics protocol.
 	TerminalImages string
@@ -125,6 +128,7 @@ func DefaultPrefs() Prefs {
 		PreviewStyle:             "auto",
 		TerminalMouse:            true,
 		Autosave:                 true,
+		AutolinkRemoveDuplicates: true,
 		TerminalMath:             "typst",
 		ViewModeRules:            map[string]string{},
 		RenderTimeout:            10,
@@ -245,6 +249,7 @@ func applyPrefs(p *Prefs, doc map[string]any) {
 	terminal := section("terminal")
 	setBool(terminal, "mouse", &p.TerminalMouse)
 	setBool(terminal, "autosave", &p.Autosave)
+	setBool(terminal, "autolink_remove_duplicates", &p.AutolinkRemoveDuplicates)
 	setString(terminal, "preview_style", &p.PreviewStyle)
 	setString(terminal, "images", &p.TerminalImages)
 	setString(terminal, "theme", &p.TerminalTheme)
@@ -393,6 +398,9 @@ mouse = true
 # autosave = false: notes are written only when you save them (:w, Ctrl+S), and
 # :q and :qa ask before dropping unsaved edits.
 autosave = true
+# autolink_remove_duplicates = false: the autolink command keeps each later
+# link to a note. True makes each later link plain text.
+autolink_remove_duplicates = true
 # A theme for zn alone: a family, a theme id or a custom theme. Empty follows
 # [appearance], so the terminal matches the desktop app.
 theme = ""
