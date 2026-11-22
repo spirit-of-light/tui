@@ -383,6 +383,7 @@ func (e *Editor) SetCursor(p Pos) {
 	}
 	e.desiredCol = -1
 	e.openFoldAt(e.cursor.Line)
+	e.snippetCheckRange()
 }
 
 // SetText replaces the text and resets history.
@@ -556,6 +557,14 @@ func (e *Editor) HandleKey(k Key) bool {
 	if e.recordingIns && !e.replaying {
 		e.changeKeys = append(e.changeKeys, k)
 	}
+	if len(e.sessions) > 0 {
+		return e.snippetKey(k)
+	}
+	return e.dispatchKey(k)
+}
+
+// dispatchKey hands a key to the handler of the current mode.
+func (e *Editor) dispatchKey(k Key) bool {
 	switch e.mode {
 	case ModeInsert, ModeReplace:
 		if !e.opts.VimEnabled {
@@ -1641,6 +1650,10 @@ func (e *Editor) WordUnderCursor() string {
 // InsertAtCursor inserts text as one undoable change and leaves the cursor
 // after it.
 func (e *Editor) InsertAtCursor(text string) {
+	e.tracked(func() { e.insertAtCursor(text) })
+}
+
+func (e *Editor) insertAtCursor(text string) {
 	e.beginChange()
 	p := e.cursor
 	if e.mode != ModeInsert && e.mode != ModeReplace && e.buf.LineLen(p.Line) > 0 && p.Col < e.buf.LineLen(p.Line) {
@@ -1659,6 +1672,10 @@ func (e *Editor) InsertAtCursor(text string) {
 // accepting a completion does. In insert mode it joins the insert in
 // progress, so one undo takes the typing and the completion together.
 func (e *Editor) ReplaceAtCursor(before, after int, text string) {
+	e.tracked(func() { e.replaceAtCursor(before, after, text) })
+}
+
+func (e *Editor) replaceAtCursor(before, after int, text string) {
 	e.beginChange()
 	n := e.buf.LineLen(e.cursor.Line)
 	start := Pos{e.cursor.Line, max(0, e.cursor.Col-before)}
