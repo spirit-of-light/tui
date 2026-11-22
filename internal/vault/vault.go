@@ -268,6 +268,7 @@ func (v *Vault) readMeta(abs string, folder NoteFolder, preambleFolder string) (
 	if !IsTypstPreamblePath(rel, preambleFolder) {
 		meta.Tags = ExtractTags(bodyStr)
 	}
+	meta.Aliases = ExtractAliases(bodyStr)
 	return meta, nil
 }
 

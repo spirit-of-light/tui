@@ -92,8 +92,13 @@ func wikiResolvePathSuffix(notes []NoteMeta, target string) (NoteMeta, bool) {
 	return NoteMeta{}, false
 }
 
-// ResolveWikilink finds the note a `[[target]]` points at, or false.
+// ResolveWikilink finds the note a `[[target]]` points at, or false. A path or
+// a title wins, and an alias of a note answers only when neither matches.
 func ResolveWikilink(notes []NoteMeta, target string) (NoteMeta, bool) {
+	return resolveWikilink(notes, target, true)
+}
+
+func resolveWikilink(notes []NoteMeta, target string, useAliases bool) (NoteMeta, bool) {
 	visible := make([]NoteMeta, 0, len(notes))
 	for _, n := range notes {
 		if n.Folder != FolderTrash {
@@ -111,6 +116,16 @@ func ResolveWikilink(notes []NoteMeta, target string) (NoteMeta, bool) {
 	for _, n := range visible {
 		if wikiNormCompare(n.Title) == needle {
 			return n, true
+		}
+	}
+	if !useAliases {
+		return NoteMeta{}, false
+	}
+	for _, n := range visible {
+		for _, alias := range n.Aliases {
+			if wikiNormCompare(alias) == needle {
+				return n, true
+			}
 		}
 	}
 	return NoteMeta{}, false
@@ -270,7 +285,9 @@ func RewriteWikilinksForRename(body string, notes []NoteMeta, oldPath, newTitle 
 		embed := body[m[2]:m[3]]
 		content := body[m[4]:m[5]]
 		target, anchor, alias := SplitWikilinkContent(content)
-		if n, ok := ResolveWikilink(notes, target); !ok || n.Path != oldPath {
+		// A link that reaches the note through an alias still names that alias
+		// after the rename, so it stays as written.
+		if n, ok := resolveWikilink(notes, target, false); !ok || n.Path != oldPath {
 			continue
 		}
 		newTarget := wikiKeepSpaces(target, wikiSwapBasename(strings.TrimSpace(target), newTitle))
@@ -302,15 +319,30 @@ func BacklinksIn(notes []NoteMeta, relPath string) []NoteMeta {
 		target = fileName[:dot]
 	}
 	target = strings.ToLower(target)
+	names := []string{target}
+	for _, n := range notes {
+		if n.Path == relPath {
+			for _, alias := range n.Aliases {
+				names = append(names, wikiNormCompare(alias))
+			}
+			break
+		}
+	}
 	out := []NoteMeta{}
 	for _, meta := range notes {
 		if meta.Path == relPath {
 			continue
 		}
+	links:
 		for _, w := range meta.Wikilinks {
-			if strings.ToLower(w) == target {
-				out = append(out, meta)
-				break
+			lw := strings.ToLower(w)
+			linked, _, _ := SplitWikilinkContent(w)
+			linked = wikiNormCompare(linked)
+			for i, name := range names {
+				if lw == name || (i > 0 && linked == name) {
+					out = append(out, meta)
+					break links
+				}
 			}
 		}
 	}

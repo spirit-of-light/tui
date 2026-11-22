@@ -159,6 +159,22 @@ func Unquote(v string) string {
 	return t
 }
 
+// ExtractAliases returns the names in the `aliases` list of a note's
+// frontmatter, as a block list or an inline list. Empty names are dropped.
+func ExtractAliases(body string) []string {
+	block, _, ok := Frontmatter(body)
+	if !ok {
+		return nil
+	}
+	var out []string
+	for _, a := range ParseFrontmatterFields(block)["aliases"] {
+		if a = strings.TrimSpace(a); a != "" {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
 // ExtractTags returns the unique tags of a note: frontmatter `tags` (a bare
 // scalar splits on commas and whitespace) plus inline `#tags` outside code.
 func ExtractTags(body string) []string {

@@ -69,6 +69,10 @@ type NoteMeta struct {
 	// Symlink marks a note a server listed from a link rather than a file. A
 	// local listing leaves those out.
 	Symlink bool `json:"symlink,omitempty"`
+	// Aliases are the other names a note answers to, from the `aliases` list of
+	// its frontmatter. They stay out of the JSON, which keeps the shape the
+	// desktop CLI prints, and a server listing does not carry them.
+	Aliases []string `json:"-"`
 }
 
 // NoteContent is a note with its body.
