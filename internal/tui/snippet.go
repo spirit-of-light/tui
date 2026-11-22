@@ -79,3 +79,23 @@ func (a *App) terminalKeyBound(k vim.Key, id string) bool {
 	}
 	return false
 }
+
+// checkSnippetOwner ends the session of the owner buffer when the focused
+// editor pane, tab or buffer is not the one that started it. A focus move to
+// the sidebar, a side panel or an overlay keeps the session, because the
+// active pane does not change then.
+func (a *App) checkSnippetOwner() {
+	o := a.snippetOwner
+	if o.buf == nil {
+		return
+	}
+	if !o.buf.ed.SnippetActive() {
+		a.snippetOwner = snippetOwner{}
+		return
+	}
+	if a.activePane == o.pane && a.activeTab() == o.tab && a.activeBuffer() == o.buf {
+		return
+	}
+	o.buf.ed.EndSnippets()
+	a.snippetOwner = snippetOwner{}
+}

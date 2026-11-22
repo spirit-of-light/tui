@@ -339,8 +339,15 @@ func (a *App) shutdown() error {
 	return err
 }
 
-// Update is the Bubble Tea message loop.
+// Update is the Bubble Tea message loop. After each message it ends a snippet
+// session whose pane, tab or buffer is no longer the focused one.
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	m, cmd := a.update(msg)
+	a.checkSnippetOwner()
+	return m, cmd
+}
+
+func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m := msg.(type) {
 	case versionDetailsMsg:
 		a.finishVersionDetails(m)
