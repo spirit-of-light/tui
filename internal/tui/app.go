@@ -73,6 +73,7 @@ type App struct {
 	epoch              *int
 	deferReads         bool
 	keymap             *keymaps.Resolver
+	terminalKeys       *keymaps.TerminalResolver
 	theme              Theme
 	// themeSel is the selection the theme was resolved from; :theme edits it.
 	themeSel themes.Selection
@@ -246,6 +247,7 @@ func newApp(ctx context.Context, opts Options, prefs config.Prefs, systemDark bo
 		epoch:        new(int),
 		prefs:        prefsView{Prefs: prefs, TabsOff: !prefs.TabsEnabled},
 		keymap:       keymaps.NewResolver(prefs.KeymapOverrides),
+		terminalKeys: keymaps.NewTerminalResolver(nil),
 		systemDark:   systemDark,
 		mouseEnabled: prefs.TerminalMouse,
 		buffers:      map[string]*noteBuffer{},

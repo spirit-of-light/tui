@@ -3,7 +3,9 @@ package tui
 import (
 	"time"
 
+	"github.com/ZenNotes/tui/internal/keymaps"
 	"github.com/ZenNotes/tui/internal/templates"
+	"github.com/ZenNotes/tui/internal/vim"
 )
 
 // snippetNow is the clock that snippet variables read, so tests can fix it.
@@ -34,4 +36,46 @@ func (a *App) expandSnippet(buf *noteBuffer, body string) {
 	if buf.ed.SnippetActive() {
 		a.snippetOwner = snippetOwner{pane: a.activePane, tab: a.activeTab(), buf: buf}
 	}
+}
+
+// snippetKey handles the keys of a running snippet session: the keys of the
+// next and previous tabstop actions. It acts only while a session runs in
+// the buffer and the buffer takes text, so these keys keep their usual
+// function everywhere else. Only a single key matches. With Vim off, Esc
+// ends the session and then goes on to the editor.
+func (a *App) snippetKey(buf *noteBuffer, k vim.Key) bool {
+	if !buf.ed.SnippetActive() {
+		return false
+	}
+	if a.prefs.VimMode && buf.ed.Mode() != vim.ModeInsert {
+		return false
+	}
+	if !a.prefs.VimMode && k.Is("esc") {
+		buf.ed.EndSnippets()
+		return false
+	}
+	switch {
+	case a.terminalKeyBound(k, "snippet.nextTabstop"):
+		buf.ed.SnippetNext()
+	case a.terminalKeyBound(k, "snippet.prevTabstop"):
+		buf.ed.SnippetPrev()
+	default:
+		return false
+	}
+	a.refreshTagMenu(buf)
+	return true
+}
+
+// terminalKeyBound reports whether k is one of the single-key bindings of a
+// zn-only action.
+func (a *App) terminalKeyBound(k vim.Key, id string) bool {
+	if a.terminalKeys == nil {
+		a.terminalKeys = keymaps.NewTerminalResolver(nil)
+	}
+	for _, keys := range a.terminalKeys.Keys(id) {
+		if len(keys) == 1 && sameKey(k, keys[0]) {
+			return true
+		}
+	}
+	return false
 }
