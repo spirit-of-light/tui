@@ -925,6 +925,16 @@ func (a *App) renderStatusBar() string {
 			mode = "EDIT"
 		}
 		suffix = buf.ed.StatusSuffix()
+		if cur, total, atEnd, ok := buf.ed.SnippetStatus(); ok {
+			label := fmt.Sprintf("SNIPPET %d/%d", cur, total)
+			if atEnd {
+				label = "SNIPPET end"
+			}
+			if suffix != "" {
+				label += "  " + suffix
+			}
+			suffix = label
+		}
 		if tab := a.activeTab(); tab != nil {
 			switch tab.mode {
 			case modePreview:

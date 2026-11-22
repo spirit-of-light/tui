@@ -35,7 +35,9 @@ type styleKey struct {
 	class          int
 	visual, search bool
 	cursor         bool
-	dimDone        bool
+	// snippet marks the unchanged placeholder of a snippet tabstop.
+	snippet bool
+	dimDone bool
 	// fg, bold and italic come from syntax highlighting inside code fences.
 	fg           string
 	bold, italic bool
@@ -96,6 +98,9 @@ func (a *App) styleFor(k styleKey) lipgloss.Style {
 	}
 	if k.visual {
 		s = s.Background(th.BgSelected)
+	}
+	if k.snippet {
+		s = s.Background(th.BgSelected).Underline(true)
 	}
 	if k.search {
 		s = s.Background(th.Yellow).Foreground(th.Bg)
@@ -353,6 +358,7 @@ func (a *App) renderEditor(buf *noteBuffer, w, h int, focused bool) string {
 			segs = wrapLine(runes, textW)
 		}
 		searchHits := ed.SearchHighlights(line)
+		snippetHits := ed.SnippetPlaceholder(line)
 		if hits := ed.IncrementalHighlights(line); len(hits) > 0 {
 			searchHits = append(searchHits, hits...)
 		}
@@ -384,6 +390,11 @@ func (a *App) renderEditor(buf *noteBuffer, w, h int, focused bool) string {
 						key.search = true
 					}
 				}
+				for _, hit := range snippetHits {
+					if col >= hit[0] && col < hit[1] {
+						key.snippet = true
+					}
+				}
 				if drawBlock && line == cur.Line && col == cur.Col {
 					key.cursor = true
 				}
@@ -403,6 +414,11 @@ func (a *App) renderEditor(buf *noteBuffer, w, h int, focused bool) string {
 					for _, hit := range searchHits {
 						if j >= hit[0] && j < hit[1] {
 							k2.search = true
+						}
+					}
+					for _, hit := range snippetHits {
+						if j >= hit[0] && j < hit[1] {
+							k2.snippet = true
 						}
 					}
 					if drawBlock && line == cur.Line && j == cur.Col {
