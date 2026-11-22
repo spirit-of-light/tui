@@ -14,6 +14,11 @@ const (
 	// AutolinkConflict marks a reference that more than one note can claim. It
 	// has no edits: the review chooses a note, or none, with Resolved.
 	AutolinkConflict AutolinkKind = "conflict"
+	// AutolinkMove puts the link to a note at an earlier reference. The old
+	// position becomes the text that the link showed.
+	AutolinkMove AutolinkKind = "move"
+	// AutolinkRemove turns a repeated link to a note into its text.
+	AutolinkRemove AutolinkKind = "remove"
 )
 
 // AutolinkEdit replaces body[Start:End] with Text.
@@ -51,6 +56,9 @@ type AutolinkOptions struct {
 	// conflict maps to the path of the chosen note, or to "" for no note. A
 	// conflict without an answer stays in the plan as a conflict change.
 	Resolved map[int]string
+	// RemoveDuplicates turns each link to a note after the first one into its
+	// text. Without it, those links stay. It does not change moves.
+	RemoveDuplicates bool
 }
 
 // inAutolinkScope reports whether a note takes part in autolink at all: a note
@@ -100,17 +108,16 @@ func PlanAutolinks(body, self string, notes []NoteMeta, opts AutolinkOptions) []
 		return nil
 	}
 	mask := autolinkMask(body)
-	linked := linkedTargets(body, self, notes)
+	links := currentLinks(body, self, notes)
 
 	var matches []autolinkMatch
 	for ti, n := range targets {
-		if linked[n.Path] {
-			continue
+		for _, m := range targetMatches(body, mask, n, ti) {
+			// A reference after the first link to the note changes nothing.
+			if ls := links[n.Path]; len(ls) == 0 || m.start < ls[0].Start {
+				matches = append(matches, m)
+			}
 		}
-		matches = append(matches, targetMatches(body, mask, n, ti)...)
-	}
-	if len(matches) == 0 {
-		return nil
 	}
 	sort.SliceStable(matches, func(i, j int) bool {
 		if matches[i].start != matches[j].start {
@@ -204,13 +211,30 @@ func PlanAutolinks(body, self string, notes []NoteMeta, opts AutolinkOptions) []
 			if !ok {
 				break
 			}
-			changes = append(changes, describe(AutolinkChange{
+			change := AutolinkChange{
 				Kind:   AutolinkAdd,
 				Edits:  []AutolinkEdit{{Start: m.start, End: m.end, Text: link}},
 				Target: n.Path,
 				Offset: m.start,
-			}))
+			}
+			if old := links[n.Path]; len(old) > 0 {
+				change.Kind = AutolinkMove
+				change.Edits = append(change.Edits, AutolinkEdit{Start: old[0].Start, End: old[0].End, Text: old[0].Text})
+			}
+			changes = append(changes, describe(change))
 			break
+		}
+	}
+	if opts.RemoveDuplicates {
+		for _, n := range targets {
+			for _, l := range links[n.Path][min(1, len(links[n.Path])):] {
+				changes = append(changes, describe(AutolinkChange{
+					Kind:   AutolinkRemove,
+					Edits:  []AutolinkEdit{{Start: l.Start, End: l.End, Text: l.Text}},
+					Target: n.Path,
+					Offset: l.Start,
+				}))
+			}
 		}
 	}
 	sort.SliceStable(changes, func(i, j int) bool { return changes[i].Offset < changes[j].Offset })
@@ -269,10 +293,11 @@ func spanMasked(mask []bool, start, end int) bool {
 	return false
 }
 
-// linkedTargets lists the notes that body already links to with a wikilink that
-// has no anchor, or with a Markdown link. An embed does not count.
-func linkedTargets(body, self string, notes []NoteMeta) map[string]bool {
-	linked := map[string]bool{}
+// currentLinks lists, for each note, the links in body that count as a link to
+// it, in order: a wikilink without an anchor or a Markdown link. An embed does
+// not count, and neither does a link in a table or a task line.
+func currentLinks(body, self string, notes []NoteMeta) map[string][]autolinkLink {
+	linked := map[string][]autolinkLink{}
 	for _, l := range autolinkLinks(body) {
 		if l.Embed || l.Anchor != "" {
 			continue
@@ -285,7 +310,7 @@ func linkedTargets(body, self string, notes []NoteMeta) map[string]bool {
 			n, ok = ResolveNoteHref(notes, self, l.Target)
 		}
 		if ok {
-			linked[n.Path] = true
+			linked[n.Path] = append(linked[n.Path], l)
 		}
 	}
 	return linked

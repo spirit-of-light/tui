@@ -99,12 +99,7 @@ func maskLine(mask []bool, body string, start, end int) {
 	if trimmed == "" {
 		return
 	}
-	switch {
-	case autolinkHeadingRe.MatchString(line),
-		strings.HasPrefix(strings.TrimLeft(line, " \t"), "|"),
-		strings.Contains(line, "|") && autolinkTableDelim.MatchString(line),
-		autolinkTaskRe.MatchString(line),
-		autolinkCalloutRe.MatchString(line):
+	if autolinkHeadingRe.MatchString(line) || autolinkCalloutRe.MatchString(line) || autolinkTableOrTaskLine(line) {
 		markAll(mask[start:end])
 		return
 	}
@@ -119,6 +114,14 @@ func maskLine(mask []bool, body string, start, end int) {
 			markAll(mask[start+m[0] : start+m[1]])
 		}
 	}
+}
+
+// autolinkTableOrTaskLine reports whether line is a table row, a table
+// delimiter line or a task line.
+func autolinkTableOrTaskLine(line string) bool {
+	return strings.HasPrefix(strings.TrimLeft(line, " \t"), "|") ||
+		strings.Contains(line, "|") && autolinkTableDelim.MatchString(line) ||
+		autolinkTaskRe.MatchString(line)
 }
 
 // markInlineMath marks `$...$` on one line. The opening `$` has no space after
@@ -170,15 +173,24 @@ type autolinkLink struct {
 }
 
 // autolinkLinks lists the links of body outside frontmatter and code, in
-// order. A link in a table cell or a task line is still listed.
+// order. A link in a table cell or a task line is not listed: autolink leaves
+// such a link alone and does not count it as the link to a note.
 func autolinkLinks(body string) []autolinkLink {
 	mask := wikiCodeMask(body)
 	if _, rest, ok := Frontmatter(body); ok {
 		markAll(mask[:len(body)-len(rest)])
 	}
+	lineOf := func(pos int) string {
+		from := strings.LastIndexByte(body[:pos], '\n') + 1
+		to := len(body)
+		if i := strings.IndexByte(body[pos:], '\n'); i >= 0 {
+			to = pos + i
+		}
+		return body[from:to]
+	}
 	var links []autolinkLink
 	for _, m := range autolinkWikiSpanRe.FindAllStringIndex(body, -1) {
-		if mask[m[0]] {
+		if mask[m[0]] || autolinkTableOrTaskLine(lineOf(m[0])) {
 			continue
 		}
 		span := body[m[0]:m[1]]
@@ -192,7 +204,7 @@ func autolinkLinks(body string) []autolinkLink {
 		links = append(links, autolinkLink{Start: m[0], End: m[1], Wiki: true, Embed: embed, Target: target, Anchor: anchor, Text: text})
 	}
 	for _, m := range autolinkMdSpanRe.FindAllStringIndex(body, -1) {
-		if mask[m[0]] {
+		if mask[m[0]] || autolinkTableOrTaskLine(lineOf(m[0])) {
 			continue
 		}
 		span := body[m[0]:m[1]]
