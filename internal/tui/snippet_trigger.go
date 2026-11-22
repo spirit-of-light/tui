@@ -7,6 +7,9 @@ import (
 	"github.com/ZenNotes/tui/internal/vim"
 )
 
+// snippetsRemoteMessage tells that a remote vault has no snippets.
+const snippetsRemoteMessage = "Snippets are not available for a remote vault."
+
 // snippetExpandKey reports whether k is a single-key binding of the snippet
 // trigger action for the current Vim mode.
 func (a *App) snippetExpandKey(k vim.Key) bool {
@@ -41,6 +44,14 @@ func (a *App) snippetTriggerKey(buf *noteBuffer, k vim.Key) bool {
 	}
 	prefix := buf.ed.WordBeforeCursor()
 	if prefix == "" {
+		return false
+	}
+	if a.snippetsRemote {
+		// A remote vault has no snippets: tell this one time, keep the key.
+		if !a.snippetsRemoteShown {
+			a.snippetsRemoteShown = true
+			a.notify(snippetsRemoteMessage)
+		}
 		return false
 	}
 	matches := a.snippetIndex.Match(prefix)

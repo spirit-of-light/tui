@@ -103,6 +103,8 @@ type App struct {
 	snippetIndex *snippet.Index
 	// snippetsRemote is true when the vault has no snippet source.
 	snippetsRemote bool
+	// snippetsRemoteShown is true once this run told about the remote limit.
+	snippetsRemoteShown bool
 
 	sidebar         *sidebarState
 	sidebarOpen     bool
