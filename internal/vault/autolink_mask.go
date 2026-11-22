@@ -27,6 +27,12 @@ var (
 // callout titles, and the full span of each wikilink, embed and Markdown link.
 // A region that is not closed runs to the end of the body.
 func autolinkMask(body string) []bool {
+	return autolinkMaskOf(body, true)
+}
+
+// autolinkMaskOf builds the mask of autolinkMask. When spans is false, it does
+// not mark the span of a wikilink, an embed or a Markdown link.
+func autolinkMaskOf(body string, spans bool) []bool {
 	mask := wikiCodeMask(body)
 	if _, rest, ok := Frontmatter(body); ok {
 		markAll(mask[:len(body)-len(rest)])
@@ -40,7 +46,7 @@ func autolinkMask(body string) []bool {
 		if i := strings.IndexByte(body[start:], '\n'); i >= 0 {
 			end = start + i
 		}
-		maskLine(mask, body, start, end)
+		maskLine(mask, body, start, end, spans)
 		start = end + 1
 	}
 	return mask
@@ -93,7 +99,7 @@ func markEnvironments(mask []bool, body string) {
 }
 
 // maskLine marks the parts of one line that are not prose.
-func maskLine(mask []bool, body string, start, end int) {
+func maskLine(mask []bool, body string, start, end int, spans bool) {
 	line := body[start:end]
 	trimmed := strings.TrimSpace(line)
 	if trimmed == "" {
@@ -104,9 +110,16 @@ func maskLine(mask []bool, body string, start, end int) {
 		return
 	}
 	markInlineMath(mask, body, start, end)
-	for _, re := range []*regexp.Regexp{autolinkURLRe, autolinkBareRe, autolinkTagRe, autolinkWikiSpanRe, autolinkMdSpanRe} {
+	for _, re := range []*regexp.Regexp{autolinkURLRe, autolinkBareRe, autolinkTagRe} {
 		for _, m := range re.FindAllStringIndex(line, -1) {
 			markAll(mask[start+m[0] : start+m[1]])
+		}
+	}
+	if spans {
+		for _, re := range []*regexp.Regexp{autolinkWikiSpanRe, autolinkMdSpanRe} {
+			for _, m := range re.FindAllStringIndex(line, -1) {
+				markAll(mask[start+m[0] : start+m[1]])
+			}
 		}
 	}
 	for _, m := range autolinkElementRe.FindAllStringSubmatchIndex(line, -1) {
@@ -172,14 +185,12 @@ type autolinkLink struct {
 	Text       string // the shown text: the alias, the label, or the target
 }
 
-// autolinkLinks lists the links of body outside frontmatter and code, in
-// order. A link in a table cell or a task line is not listed: autolink leaves
+// autolinkLinks lists the links of body outside the regions that autolink leaves
+// alone, in order. A link in a heading, a comment, math, an HTML element, a
+// callout title, a table cell or a task line is not listed: autolink leaves
 // such a link alone and does not count it as the link to a note.
 func autolinkLinks(body string) []autolinkLink {
-	mask := wikiCodeMask(body)
-	if _, rest, ok := Frontmatter(body); ok {
-		markAll(mask[:len(body)-len(rest)])
-	}
+	mask := autolinkMaskOf(body, false)
 	lineOf := func(pos int) string {
 		from := strings.LastIndexByte(body[:pos], '\n') + 1
 		to := len(body)
