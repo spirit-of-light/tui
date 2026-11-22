@@ -135,8 +135,46 @@ func (e *Editor) deleteSnippetPlaceholder(s *snippetSession) {
 		e.shiftSnippets(textEdit{a: r[0], b: r[1], c: r[0]}, nil)
 	}
 	st.unchanged = false
-	e.cursor = e.buf.clampInsert(st.ranges[at][0])
+	pos := st.ranges[at][0]
+	e.dropNestedStops(s)
+	e.cursor = e.buf.clampInsert(pos)
 	e.desiredCol = -1
+}
+
+// dropNestedStops removes the stops that lie inside the current stop. The
+// text that holds them is gone, so they leave the session.
+func (e *Editor) dropNestedStops(s *snippetSession) {
+	inside := make([]bool, len(s.stops))
+	found := false
+	for i := range s.stops {
+		for p := s.stops[i].parent; p >= 0 && p < len(s.stops); p = s.stops[p].parent {
+			if p == s.cur {
+				inside[i] = true
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		return
+	}
+	index := make([]int, len(s.stops))
+	kept := s.stops[:0:0]
+	for i, st := range s.stops {
+		if inside[i] {
+			index[i] = -1
+			continue
+		}
+		index[i] = len(kept)
+		kept = append(kept, st)
+	}
+	for i := range kept {
+		if kept[i].parent >= 0 {
+			kept[i].parent = index[kept[i].parent]
+		}
+	}
+	s.cur = index[s.cur]
+	s.stops = kept
 }
 
 // snippetTrack moves the session ranges after the buffer changed from
@@ -153,6 +191,41 @@ func (e *Editor) snippetTrack(before [][]rune, cursorBefore Pos, owners snippetO
 		return
 	}
 	e.shiftSnippets(ed, owners)
+	e.mirrorSnippets(owners)
+}
+
+// mirrorSnippets copies the text of the occurrence that the user edited to
+// the other occurrences of the same stop. The copies are plain edits, so they
+// join the change that is open.
+func (e *Editor) mirrorSnippets(owners snippetOwners) {
+	for _, s := range e.sessions {
+		own, ok := owners[s]
+		if !ok {
+			continue
+		}
+		st := &s.stops[own[0]]
+		if len(st.ranges) < 2 {
+			continue
+		}
+		src := st.ranges[own[1]]
+		text := e.buf.Range(src[0], src[1])
+		for k := range st.ranges {
+			if k == own[1] {
+				continue
+			}
+			r := st.ranges[k]
+			if e.buf.Range(r[0], r[1]) == text {
+				continue
+			}
+			e.buf.DeleteRange(r[0], r[1])
+			end := e.buf.InsertText(r[0], text)
+			ed := textEdit{a: r[0], b: r[1], c: end}
+			e.shiftSnippets(ed, snippetOwners{s: {own[0], k}})
+			if k < own[1] && !e.cursor.Less(ed.b) {
+				e.cursor = ed.shift(e.cursor)
+			}
+		}
+	}
 }
 
 // shiftSnippets moves every range of every session by one edit.
