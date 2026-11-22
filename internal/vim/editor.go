@@ -254,6 +254,10 @@ type Editor struct {
 	folds map[int]int
 
 	inChange bool
+
+	// sessions is the stack of running snippet sessions. The last one is
+	// the active one.
+	sessions []*snippetSession
 }
 
 // New creates an editor over text.
