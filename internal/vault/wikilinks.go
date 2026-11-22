@@ -339,7 +339,7 @@ func BacklinksIn(notes []NoteMeta, relPath string) []NoteMeta {
 			linked, _, _ := SplitWikilinkContent(w)
 			linked = wikiNormCompare(linked)
 			for i, name := range names {
-				if lw == name || (i > 0 && linked == name) {
+				if i == 0 && lw == name || i > 0 && (lw == name || linked == name) && aliasResolvesTo(notes, linked, relPath) {
 					out = append(out, meta)
 					break links
 				}
@@ -347,4 +347,11 @@ func BacklinksIn(notes []NoteMeta, relPath string) []NoteMeta {
 		}
 	}
 	return out
+}
+
+// aliasResolvesTo says whether a wikilink to name resolves to the note at
+// relPath. A path or a title has priority over an alias.
+func aliasResolvesTo(notes []NoteMeta, name, relPath string) bool {
+	n, ok := ResolveWikilink(notes, name)
+	return ok && n.Path == relPath
 }

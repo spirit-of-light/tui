@@ -86,6 +86,18 @@ func TestAliasesCountAsBacklinks(t *testing.T) {
 	}
 }
 
+func TestAliasesShadowedByATitleAreNotBacklinks(t *testing.T) {
+	notes := aliasNotes()
+	notes[2] = NoteMeta{Path: "inbox/LA.md", Title: "LA", Folder: FolderInbox}
+	if got := BacklinksIn(notes, "inbox/X.md"); len(got) != 0 {
+		t.Errorf("BacklinksIn(X) = %+v, want none: [[LA]] resolves to the note titled LA", got)
+	}
+	got := BacklinksIn(notes, "inbox/LA.md")
+	if len(got) != 1 || got[0].Path != "inbox/Y.md" {
+		t.Errorf("BacklinksIn(LA) = %+v, want inbox/Y.md", got)
+	}
+}
+
 func TestAliasesSurviveARename(t *testing.T) {
 	notes := aliasNotes()
 	body := "[[LA]] and [[X]] and [[x|text]]"
