@@ -231,6 +231,67 @@ zn backlinks "Project plan.md" --json
 after frontmatter. `trash` is reversible with `restore`; `delete --yes` is
 permanent. `folder delete --yes` removes the folder and its contents.
 
+### Add links with autolink
+
+`zn autolink <path>` adds a `[[link]]` from one note to each other live note
+that the text names. `zn autolink --all` does this for each live note in the
+vault. The command works on a local vault only. On a server vault it stops with
+an error before it reads or writes a note.
+
+```bash
+zn autolink "Project plan.md"
+zn autolink --all
+```
+
+The command links the first reference to each note. It matches the title of a
+note, or one of its `aliases`, as a whole word. It ignores the case. It also
+matches simple word forms: "notes" matches the note "Note", and "theories"
+matches "Theory". The new link keeps the text that you wrote, for example
+`[[Theory|theories]]`. If two notes have the same title, the link uses the path,
+for example `[[b/X|X]]`.
+
+The command does not change these parts of a note:
+
+- the frontmatter
+- fenced code and inline code
+- math, with `$...$`, `$$...$$` and `\begin...\end`
+- headings
+- URLs and `<...>` links
+- HTML elements
+- tables
+- comments, with `<!-- ... -->` and `%% ... %%`
+- task lines
+- the title line of a callout
+- the full text of a link, an embed or a Markdown link
+
+The command never links a note to itself. It never links to a note in the
+trash, in `archive/`, in the template folder or in the Typst preamble folder.
+It does not change a note in these places.
+
+If a link to a note already exists after the first reference, the command moves
+the link to the first reference. The old position keeps the text that you saw.
+If the setting `autolink_remove_duplicates` is `true` (the default), each other
+link to the same note becomes plain text. Set it to `false` to keep these links.
+
+An embed, a link with a heading anchor, and a link in a task line or in a table
+do not count as links to the note.
+
+Before the command writes, you review the changes. Each change has a number,
+its type, the note path and the line of text. If a text can link to more than
+one note, the command asks which note to use, or to skip it. Then you type the
+numbers of the changes to omit. An empty line keeps all changes. At the last
+question, `y` writes the notes. Any other answer cancels. The review needs a
+terminal. Without a terminal, the command stops with an error.
+
+Caution: Make a copy of the vault before you run `zn autolink --all`. The
+command keeps no backup, and you cannot undo its changes.
+
+Aliases are a list under `aliases:` in the frontmatter. A link such as `[[LA]]`
+resolves to a note with the alias `LA` when no path and no title match. The
+alias is also a backlink to the note. A rename of the note does not change a
+link that resolves through an alias only. The desktop app does not read
+`aliases` for links.
+
 ### Tasks, comments, and databases
 
 ```bash
@@ -805,6 +866,21 @@ Only `zn tui` reads these settings, and zn never writes them into the vault.
 The desktop app does not use them, and since 2.81.0 it keeps them when it saves
 `config.toml` (see [Configuration](#configuration)).
 
+### Add links with :autolink
+
+`:autolink` or the palette entry "Autolink" adds links to the open note. The
+rules are the same as for `zn autolink`. The command plans from the text in the
+buffer, not from the file on disk. A menu asks you about each text that can
+link to more than one note. Then a review list shows all changes, checked.
+Tab omits or keeps a change, Enter applies the checked changes, and Esc cancels.
+The command does not save the note. One `u` in normal mode reverts all the
+changes of one buffer.
+
+`:autolink --all` does this for each live note in the vault. If an open note
+has unsaved changes, the command names it and stops. Save these notes first.
+After the review, the command saves each open note that it changed. It writes
+the other notes to disk. On a server vault, both commands show an error.
+
 ### Vaults and servers inside the app
 
 `:vault` (or `Space v`) lists every saved vault and server, with entries to
@@ -950,6 +1026,9 @@ are validated through the same portable-preference implementation as the TUI.
 Map sections such as `keymaps`, `saved_filters`, `kanban_column_titles`, and
 `tweaks` are supported too. `config --path` prints the location and `config
 --no-edit` creates the starter without opening an editor.
+
+The setting `terminal.autolink_remove_duplicates` (default `true`) controls
+whether `autolink` changes the extra links to one note into plain text.
 
 ### How a vault is chosen
 
