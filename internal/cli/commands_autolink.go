@@ -206,9 +206,7 @@ func describeAutolinkChange(number int, plan backend.AutolinkNote, c vault.Autol
 	}
 	lineOf := func(offset int) int { return 1 + strings.Count(plan.Body[:offset], "\n") }
 	emitLine(fmt.Sprintf("%3d  %-6s %s:%d  %s", number, c.Kind, plan.Path, lineOf(c.Edits[0].Start), edit(c.Edits[0])))
-	if c.Kind == vault.AutolinkAdd || c.Kind == vault.AutolinkMove {
-		emitLine("       Context: " + truncate(c.Context, 100))
-	}
+	emitLine("       Context: " + truncate(c.Context, 100))
 	if c.Kind == vault.AutolinkMove && len(c.Edits) > 1 {
 		emitLine(fmt.Sprintf("       Old link: %s:%d  %s", plan.Path, lineOf(c.Edits[1].Start), edit(c.Edits[1])))
 	}

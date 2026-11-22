@@ -154,7 +154,7 @@ func TestAutolinkCommandRowsShowTheTextAndTheOldLink(t *testing.T) {
 	for _, want := range []string{
 		"move   inbox/Y.md:1  x → [[X|x]]",
 		"Old link: inbox/Y.md:3  [[X|the x]] → the x",
-		"remove inbox/Y.md:3  [[X]] → X",
+		"remove inbox/Y.md:3  [[X]] → X\n       Context: Later [[X|the x]] and [[X]].",
 		"add    inbox/Y.md:1  w → [[W|w]]",
 		"Write 3 changes to 1 note? [y/N]",
 	} {
