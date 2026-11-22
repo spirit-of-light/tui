@@ -110,9 +110,14 @@ func cmdStatus(args Args) error {
 }
 
 type diagnosticCheck struct {
-	Name    string `json:"name"`
-	OK      bool   `json:"ok"`
+	Name string `json:"name"`
+	OK   bool   `json:"ok"`
+	// Warning marks a check that reports a problem but does not fail the run.
+	// A warning check has OK set.
+	Warning bool   `json:"warning,omitempty"`
 	Message string `json:"message"`
+	// Snippet is the structured part of a duplicate snippet trigger.
+	Snippet *snippetProblem `json:"snippet,omitempty"`
 	// Hint is what to run to fix a failed check, one command or line each.
 	Hint []string `json:"hint,omitempty"`
 }
@@ -185,7 +190,13 @@ func cmdDoctor(ctx context.Context, args Args) error {
 	}
 	add("configuration", config.ConfigTomlPath(), config.ValidateConfig())
 	if prefs, _, err := config.LoadPrefs(); err == nil && len(prefs.TerminalKeymapProblems) > 0 {
-		add("terminal keymaps", "", fmt.Errorf("zn ignores these [terminal.keymaps] entries: %s", strings.Join(prefs.TerminalKeymapProblems, "; ")))
+		// zn ignores these entries and runs with the defaults, so this is a warning.
+		checks = append(checks, diagnosticCheck{
+			Name:    "terminal keymaps",
+			OK:      true,
+			Warning: true,
+			Message: fmt.Sprintf("zn ignores these [terminal.keymaps] entries: %s", strings.Join(prefs.TerminalKeymapProblems, "; ")),
+		})
 	}
 	if prefs, _, err := config.LoadPrefs(); err == nil && prefs.TerminalMath == "latex" {
 		missing := []string{}
@@ -234,6 +245,9 @@ func cmdDoctor(ctx context.Context, args Args) error {
 			cancel()
 		}
 		add("access", "Workspace is accessible", err)
+		if b != nil {
+			checks = append(checks, doctorSnippetChecks(ctx, b)...)
+		}
 	}
 	m := server.DefaultManager()
 	instances, instanceErr := m.List()
@@ -262,6 +276,8 @@ func cmdDoctor(ctx context.Context, args Args) error {
 			state := "OK"
 			if !check.OK {
 				state = "FAIL"
+			} else if check.Warning {
+				state = "WARN"
 			}
 			emitLine(fmt.Sprintf("%s  %s: %s", state, check.Name, check.Message))
 			for _, line := range check.Hint {

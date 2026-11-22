@@ -25,8 +25,8 @@ func TestDoctorTerminalKeymapsReportsBadEntry(t *testing.T) {
 	if !ok {
 		t.Fatalf("no \"terminal keymaps\" check for a bad entry:\n%s", out)
 	}
-	if check.OK {
-		t.Errorf("the check must fail: %+v", check)
+	if !check.OK || !check.Warning {
+		t.Errorf("the check must be a warning with ok true: %+v", check)
 	}
 	if !strings.Contains(check.Message, "snippet.nope") || !strings.Contains(check.Message, "does not know") {
 		t.Errorf("the message must name the entry and the problem: %q", check.Message)
@@ -47,7 +47,7 @@ func TestDoctorTerminalKeymapsTextOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := captureOutput(t, func() { _ = Main([]string{"doctor"}) })
-	if !strings.Contains(text, "FAIL  terminal keymaps:") || !strings.Contains(text, "snippet.nextTabstop") {
+	if !strings.Contains(text, "WARN  terminal keymaps:") || !strings.Contains(text, "snippet.nextTabstop") {
 		t.Errorf("doctor text has no terminal keymaps line:\n%s", text)
 	}
 }
