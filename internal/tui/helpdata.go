@@ -4,10 +4,25 @@ import (
 	"strings"
 
 	"github.com/ZenNotes/tui/internal/config"
+	"github.com/ZenNotes/tui/internal/keymaps"
 )
 
 func configPathInfo() (string, string, error) {
 	return config.UserDataDir(), config.ConfigTomlPath(), nil
+}
+
+// snippetHelpRow is the help row of a snippet session action. The key part
+// shows the effective keys, so a `[terminal.keymaps]` override appears here.
+func snippetHelpRow(a *App, id, desc string) string {
+	keys := keymaps.NewTerminalResolver(nil).Bindings(id)
+	if a.terminalKeys != nil {
+		keys = a.terminalKeys.Bindings(id)
+	}
+	shown := "(unbound)"
+	if len(keys) > 0 {
+		shown = strings.Join(keys, " / ")
+	}
+	return id + ": " + shown + "\t" + desc
 }
 
 // helpLines is the in-app manual: `# ` and `## ` headings, `key<TAB>desc`
@@ -92,14 +107,16 @@ func helpLines(a *App, filter string) []string {
 		"v V Ctrl+V gv o\tCharacter, line and block visual modes; block insert with I and A",
 		"",
 		"## Editor: Markdown",
-		"Ctrl+L\tToggle the checkbox on the line (also in insert mode)",
+		"Ctrl+L\tOutside a snippet session, toggle the checkbox on the line (also in insert mode)",
+		snippetHelpRow(a, "snippet.nextTabstop", "In a snippet session, go to the next tabstop. At the final tabstop ($0), the session stops, if $0 has no copies."),
+		snippetHelpRow(a, "snippet.prevTabstop", "In a snippet session, go to the previous tabstop. Some terminals send Ctrl+H for Backspace. Use Shift+Tab in these terminals."),
 		"gd\tFollow the link under the cursor (wikilink, Markdown link or URL); missing notes are created on confirm",
 		"gx\tOpen the URL under the cursor in the browser",
 		"gy\tCopy the link under the cursor",
 		"zc zo za zM zR\tFold and unfold headings",
 		"Ctrl+Q / gqip\tReflow the paragraph",
 		"Enter in a list\tContinues the list or checkbox; Enter on an empty item ends it",
-		"Tab / Shift+Tab in a list\tIndent or outdent the item",
+		"Tab / Shift+Tab in a list\tOutside a snippet session, indent or outdent the item",
 		"jk\tLeaves insert mode (vim.insert_escape in config.toml)",
 		"Auto-pairs, `->` to → and other text replacements follow the editor preferences.",
 		"",

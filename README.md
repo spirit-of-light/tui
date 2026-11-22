@@ -903,7 +903,7 @@ layout choices do not change these terminal layouts.
 | `[view]` | `tasks_view_mode`, `kanban_group_by`, `kanban_statuses`, `note_sort_order` |
 | `[appearance]` | `theme_family`, `theme_mode`, `theme_id` |
 | `[tweaks]` | `accent = "#ff3b30"`: the desktop's Quick tweaks colors |
-| `[terminal]` | `mouse`, `autosave`, `preview_style`, `images`, `theme`, `math`, `render_timeout`, `render_concurrency`, `view_mode_field` and `[terminal.view_mode_rules]` (terminal only) |
+| `[terminal]` | `mouse`, `autosave`, `preview_style`, `images`, `theme`, `math`, `render_timeout`, `render_concurrency`, `view_mode_field`, `[terminal.view_mode_rules]` and `[terminal.keymaps]` (terminal only). `[terminal.keymaps]` contains the keys of the snippet session. |
 | `[keymaps]` | `"action.id" = "keys"`, or `""` to unbind; `:keymaps` lists the ids |
 | `[kanban_column_titles]` | `review = "In Review"` |
 | `[saved_filters]` | `Important = "!high"` |
