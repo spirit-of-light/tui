@@ -280,6 +280,9 @@ func (a *App) commandTable() []command {
 			a.copyActiveNote()
 			return nil
 		}},
+		{names: []string{"autolink"}, title: "Autolink", palette: true, run: func(a *App, buf *noteBuffer, cmd vim.ExCommand) error {
+			return a.autolinkCommand(buf, cmd.Args)
+		}},
 		{names: []string{"format", "fmt"}, title: "Format note", palette: true, run: func(a *App, _ *noteBuffer, _ vim.ExCommand) error {
 			a.formatActiveNote()
 			return nil
