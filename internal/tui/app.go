@@ -19,6 +19,7 @@ import (
 	"github.com/ZenNotes/tui/internal/config"
 	"github.com/ZenNotes/tui/internal/fswatch"
 	"github.com/ZenNotes/tui/internal/keymaps"
+	"github.com/ZenNotes/tui/internal/snippet"
 	"github.com/ZenNotes/tui/internal/termsafe"
 	"github.com/ZenNotes/tui/internal/themes"
 	"github.com/ZenNotes/tui/internal/vault"
@@ -98,6 +99,10 @@ type App struct {
 	activePane     *pane
 	focus          focusTarget
 	snippetOwner   snippetOwner
+	// snippetIndex holds the snippets of the vault; it is nil before the first load.
+	snippetIndex *snippet.Index
+	// snippetsRemote is true when the vault has no snippet source.
+	snippetsRemote bool
 
 	sidebar         *sidebarState
 	sidebarOpen     bool
@@ -292,6 +297,7 @@ func (a *App) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		configPollCmd(),
 		a.loadIndexCmd(),
+		a.loadSnippetsCmd(),
 	}
 	if a.opts.Target.Kind == backend.KindLocal {
 		w, err := fswatch.Start(a.opts.Target.Root)
@@ -448,6 +454,9 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.palette.emptyHint = "Search failed: " + m.err.Error()
 			}
 		}
+		return a, a.flush()
+	case snippetsLoadedMsg:
+		a.applySnippets(m)
 		return a, a.flush()
 	case indexLoadedMsg:
 		if m.epoch != nil && m.epoch != a.epoch {
@@ -611,6 +620,10 @@ func (a *App) armRemotePoll() {
 // handleVaultChange refreshes the index and reloads buffers the change
 // touched, ignoring echoes of this process's own writes.
 func (a *App) handleVaultChange(paths []string) tea.Cmd {
+	var snippetsCmd tea.Cmd
+	if snippetPathChanged(paths) {
+		snippetsCmd = a.loadSnippetsCmd()
+	}
 	external := false
 	for _, p := range paths {
 		if until, ok := a.ignoredPaths[p]; ok && time.Now().Before(until) {
@@ -622,9 +635,9 @@ func (a *App) handleVaultChange(paths []string) tea.Cmd {
 		}
 	}
 	if !external {
-		return nil
+		return snippetsCmd
 	}
-	return a.loadIndexCmd()
+	return tea.Batch(a.loadIndexCmd(), snippetsCmd)
 }
 
 // ignoreChange tells the watcher that the next event for a path is ours.

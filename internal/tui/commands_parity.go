@@ -278,6 +278,7 @@ func (a *App) switchTarget(target backend.Target) {
 	a.noteModes = map[string]paneMode{}
 	a.panes = newPaneTree()
 	a.activePane = a.panes.leaves()[0]
+	a.resetSnippets()
 	a.idx = nil
 	a.recent = nil
 	a.jumps = nil
@@ -303,6 +304,7 @@ func (a *App) switchTarget(target backend.Target) {
 	}
 	a.startRemoteWatch()
 	a.refreshIndex()
+	a.queue(a.loadSnippetsCmd())
 	if err := backend.RememberTarget(target); err != nil {
 		a.notifyError("Could not save the workspace list: " + err.Error())
 	}
