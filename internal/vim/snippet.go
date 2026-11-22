@@ -159,3 +159,44 @@ func (e *Editor) SnippetPlaceholder(line int) [][2]int {
 	}
 	return out
 }
+
+// SnippetNext moves to the next tabstop of the running session. The order
+// is by number, and the final tabstop is last. A final tabstop that has one
+// place ends the session when the cursor arrives. At a final tabstop that has
+// copies, the call ends the session and does nothing else.
+func (e *Editor) SnippetNext() {
+	s := e.topSession()
+	if s == nil {
+		return
+	}
+	if s.stops[s.cur].number == 0 || s.cur+1 >= len(s.stops) {
+		e.popSession()
+		return
+	}
+	s.cur++
+	e.cursor = e.buf.clampInsert(s.stops[s.cur].ranges[0][0])
+	e.desiredCol = -1
+	if st := s.stops[s.cur]; st.number == 0 && len(st.ranges) == 1 {
+		e.popSession()
+	}
+}
+
+// SnippetPrev moves to the previous tabstop of the running session. At the
+// first tabstop it does nothing.
+func (e *Editor) SnippetPrev() {
+	s := e.topSession()
+	if s == nil || s.cur == 0 {
+		return
+	}
+	s.cur--
+	e.cursor = e.buf.clampInsert(s.stops[s.cur].ranges[0][0])
+	e.desiredCol = -1
+}
+
+// popSession ends the top session. The session below it, if any, is active
+// again.
+func (e *Editor) popSession() {
+	if n := len(e.sessions); n > 0 {
+		e.sessions = e.sessions[:n-1]
+	}
+}
