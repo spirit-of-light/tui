@@ -247,7 +247,7 @@ func newApp(ctx context.Context, opts Options, prefs config.Prefs, systemDark bo
 		epoch:        new(int),
 		prefs:        prefsView{Prefs: prefs, TabsOff: !prefs.TabsEnabled},
 		keymap:       keymaps.NewResolver(prefs.KeymapOverrides),
-		terminalKeys: keymaps.NewTerminalResolver(nil),
+		terminalKeys: keymaps.NewTerminalResolver(prefs.TerminalKeymapOverrides),
 		systemDark:   systemDark,
 		mouseEnabled: prefs.TerminalMouse,
 		buffers:      map[string]*noteBuffer{},
