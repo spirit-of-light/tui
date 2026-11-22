@@ -184,6 +184,9 @@ func cmdDoctor(ctx context.Context, args Args) error {
 		checks = append(checks, diagnosticCheck{Name: name, OK: err == nil, Message: message})
 	}
 	add("configuration", config.ConfigTomlPath(), config.ValidateConfig())
+	if prefs, _, err := config.LoadPrefs(); err == nil && len(prefs.TerminalKeymapProblems) > 0 {
+		add("terminal keymaps", "", fmt.Errorf("zn ignores these [terminal.keymaps] entries: %s", strings.Join(prefs.TerminalKeymapProblems, "; ")))
+	}
 	if prefs, _, err := config.LoadPrefs(); err == nil && prefs.TerminalMath == "latex" {
 		missing := []string{}
 		for _, tool := range []struct{ name, from string }{{"pdftex", "TeX Live or MacTeX"}, {"pdftocairo", "poppler"}} {
