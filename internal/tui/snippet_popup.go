@@ -103,8 +103,10 @@ func (a *App) liveSnippetPopup() *snippetPopup {
 }
 
 // snippetPopupKey takes the keys of an open popup. The keys that select the
-// next and the previous row move the selection and wrap. Any other key closes
-// the popup, keeps the text and goes on.
+// next and the previous row move the selection and wrap. Enter and Ctrl+Y use
+// the selected row, and Ctrl+E puts back the typed prefix. Esc closes the popup
+// and keeps the text; with Vim on the key then goes on, and without Vim the
+// popup takes it. Any other key closes the popup, keeps the text and goes on.
 func (a *App) snippetPopupKey(buf *noteBuffer, k vim.Key) bool {
 	p := a.liveSnippetPopup()
 	if p == nil {
@@ -116,9 +118,32 @@ func (a *App) snippetPopupKey(buf *noteBuffer, k vim.Key) bool {
 		p.show(p.shown, (p.sel+1)%n)
 	case k.IsCtrl('p') || k.Is("shift+tab"):
 		p.show(p.shown, (p.sel-1+n)%n)
+	case k.Is("enter") || k.IsCtrl('y'):
+		a.acceptSnippetPopup(buf, p)
+	case k.IsCtrl('e'):
+		a.snippetPopup = nil
+		buf.ed.ReplaceBeforeCursor(p.shown, p.prefix)
+		buf.ed.EndTriggerChange()
+	case k.Is("esc"):
+		a.closeSnippetPopup(p)
+		return !a.prefs.VimMode
 	default:
 		a.closeSnippetPopup(p)
 		return false
 	}
 	return true
+}
+
+// acceptSnippetPopup uses the selected row and closes the popup. A trigger
+// expands over the text that shows. A word stays as text.
+func (a *App) acceptSnippetPopup(buf *noteBuffer, p *snippetPopup) {
+	it := p.items[p.sel]
+	if it.snip == nil {
+		a.closeSnippetPopup(p)
+		return
+	}
+	a.snippetPopup = nil
+	buf.ed.ExpandSnippetOver(p.shown, it.snip.Body, a.snippetVars(buf))
+	a.recordSnippetOwner(buf)
+	a.refreshTagMenu(buf)
 }
