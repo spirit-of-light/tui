@@ -234,23 +234,42 @@ func substituteLocale(input, title string, now time.Time, locale string) string 
 	return tokenRe.ReplaceAllStringFunc(input, func(full string) string {
 		m := tokenRe.FindStringSubmatch(full)
 		token := strings.TrimSpace(m[1])
-		_, week := now.ISOWeek()
-		switch {
-		case token == "cursor":
+		if token == "cursor" {
 			return cursorToken
-		case token == "title":
-			return title
-		case token == "date":
-			return now.Format("2006-01-02")
-		case token == "time":
-			return now.Format("15:04")
-		case token == "week":
-			return padTwo(week)
-		case strings.HasPrefix(token, "date:"):
-			return periodic.FormatTemplateDateLocale(now, token[len("date:"):], locale)
+		}
+		name, arg, hasArg := strings.Cut(token, ":")
+		if value, ok := Variable(name, arg, hasArg, title, now, locale); ok {
+			return value
 		}
 		return full
 	})
+}
+
+// Variable gives the value of one template variable. The names are `title`,
+// `date`, `time` and `week`. The hasArg flag tells whether the token had a
+// colon, so `date:` (an empty format) differs from `date`. Only `date` takes
+// an arg. With hasArg false, `date` gives the plain date. With hasArg true,
+// `date` gives the date in the format arg. A name with an arg that it does
+// not take, and any other name, give false.
+func Variable(name, arg string, hasArg bool, title string, now time.Time, locale string) (string, bool) {
+	if hasArg && name != "date" {
+		return "", false
+	}
+	switch name {
+	case "title":
+		return title, true
+	case "date":
+		if hasArg {
+			return periodic.FormatTemplateDateLocale(now, arg, locale), true
+		}
+		return now.Format("2006-01-02"), true
+	case "time":
+		return now.Format("15:04"), true
+	case "week":
+		_, week := now.ISOWeek()
+		return padTwo(week), true
+	}
+	return "", false
 }
 
 func padTwo(n int) string {
