@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -917,7 +918,7 @@ func (a *App) openKeymapList() {
 		a.terminalKeys = keymaps.NewTerminalResolver(nil)
 	}
 	for _, e := range a.terminalKeys.Entries() {
-		items = append(items, paletteItem{label: e.Title, detail: e.ID + " · zn only", hint: terminalKeyHint(e.Bindings), id: e.ID, section: "Terminal"})
+		items = append(items, paletteItem{label: e.Title, detail: e.ID + " · zn only", hint: terminalKeyHint(a.terminalKeys.Labels(e.ID)), id: e.ID, section: "Terminal"})
 	}
 	a.overlay = &palette{title: "Keymap actions · Enter changes a binding", placeholder: "Action", items: items, filtered: items, onSelect: func(a *App, it paletteItem) {
 		initial, help := a.keymap.Binding(it.id), "Empty disables this action; use terminal keys, e.g. ctrl+n"
@@ -926,6 +927,11 @@ func (a *App) openKeymapList() {
 			help = "Empty disables this action; separate keys with a comma, e.g. Alt+N, Tab"
 		}
 		a.promptFor("Binding · "+it.id, initial, help, func(a *App, s string) {
+			// The prompt starts with the keys of all modes. Text that
+			// equals them is no change, so the default keys keep their modes.
+			if isTerminalAction(it.id) && slices.Equal(keymaps.SplitTerminalKeys(s), a.terminalKeys.Bindings(it.id)) {
+				return
+			}
 			if err := a.saveKeymap(it.id, s); err != nil {
 				a.notifyError(err.Error())
 			}
@@ -933,7 +939,7 @@ func (a *App) openKeymapList() {
 	}}
 }
 
-// terminalKeyHint is the key list of a zn-only action for the keymap list.
+// terminalKeyHint is the key labels of a zn-only action for the keymap list.
 func terminalKeyHint(keys []string) string {
 	if len(keys) == 0 {
 		return "(unbound)"
