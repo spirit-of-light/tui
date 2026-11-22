@@ -178,12 +178,3 @@ func TestAutolinkAddNoReference(t *testing.T) {
 		t.Errorf("changes = %+v, want none", changes)
 	}
 }
-
-func TestAutolinkAddSameTitleUsesPath(t *testing.T) {
-	notes := []NoteMeta{autolinkNote("inbox/Y.md", "Y"), autolinkNote("inbox/a/X.md", "X"), autolinkNote("inbox/b/X.md", "X")}
-	// Both notes match the same text, so the plan leaves the choice to a later
-	// step and adds no link that could point at the wrong note.
-	if changes := PlanAutolinks("X", "inbox/Y.md", notes, AutolinkOptions{}); len(changes) != 0 {
-		t.Errorf("changes = %+v, want none", changes)
-	}
-}

@@ -8,8 +8,13 @@ import (
 // AutolinkKind is the type of one planned change.
 type AutolinkKind string
 
-// AutolinkAdd turns the first plain reference to a note into a link.
-const AutolinkAdd AutolinkKind = "add"
+const (
+	// AutolinkAdd turns the first plain reference to a note into a link.
+	AutolinkAdd AutolinkKind = "add"
+	// AutolinkConflict marks a reference that more than one note can claim. It
+	// has no edits: the review chooses a note, or none, with Resolved.
+	AutolinkConflict AutolinkKind = "conflict"
+)
 
 // AutolinkEdit replaces body[Start:End] with Text.
 type AutolinkEdit struct {
@@ -22,11 +27,18 @@ type AutolinkChange struct {
 	Kind AutolinkKind
 	// Edits are the byte edits of the change, against the body that was planned.
 	Edits []AutolinkEdit
-	// Target is the path of the note that the change links to.
+	// Target is the path of the note that the change links to. A conflict has
+	// no target.
 	Target string
+	// Offset is the byte offset of the change in the body that was planned. For a
+	// conflict it is the key of AutolinkOptions.Resolved.
+	Offset int
 	// Line is the 1-based line of the change, and Context is that line trimmed.
 	Line    int
 	Context string
+	// Choices are the paths of the notes that a conflict can link to, in note
+	// order. Choosing no note is always possible.
+	Choices []string
 }
 
 // AutolinkOptions holds the vault settings that decide which notes take part.
@@ -35,6 +47,10 @@ type AutolinkOptions struct {
 	// get links nor receive them. An empty name excludes nothing.
 	TemplateFolder string
 	PreambleFolder string
+	// Resolved holds the answer to each conflict: the byte offset of the
+	// conflict maps to the path of the chosen note, or to "" for no note. A
+	// conflict without an answer stays in the plan as a conflict change.
+	Resolved map[int]string
 }
 
 // inAutolinkScope reports whether a note takes part in autolink at all: a note
@@ -64,11 +80,15 @@ func AutolinkTarget(n NoteMeta, self string, opts AutolinkOptions) bool {
 type autolinkMatch struct {
 	start, end int
 	target     int // index into the target list
-	conflict   bool
 }
 
 // PlanAutolinks lists the changes that link the first reference to each other
 // live note in body. self is the path of the note that holds body.
+//
+// A reference that overlaps the reference to another note, or that two notes
+// share by title or alias, is a conflict. A conflict is a change of its own
+// until opts.Resolved answers it. The answer can change the later changes, so a
+// caller plans again after each answer.
 func PlanAutolinks(body, self string, notes []NoteMeta, opts AutolinkOptions) []AutolinkChange {
 	var targets []NoteMeta
 	for _, n := range notes {
@@ -80,26 +100,24 @@ func PlanAutolinks(body, self string, notes []NoteMeta, opts AutolinkOptions) []
 		return nil
 	}
 	mask := autolinkMask(body)
+	linked := linkedTargets(body, self, notes)
 
 	var matches []autolinkMatch
 	for ti, n := range targets {
+		if linked[n.Path] {
+			continue
+		}
 		matches = append(matches, targetMatches(body, mask, n, ti)...)
 	}
 	if len(matches) == 0 {
 		return nil
 	}
-	markAutolinkConflicts(matches)
-
-	linked := linkedTargets(body, self, notes)
-	chosen := make(map[int]autolinkMatch)
-	for _, m := range matches {
-		if m.conflict || linked[targets[m.target].Path] {
-			continue
+	sort.SliceStable(matches, func(i, j int) bool {
+		if matches[i].start != matches[j].start {
+			return matches[i].start < matches[j].start
 		}
-		if cur, ok := chosen[m.target]; !ok || m.start < cur.start {
-			chosen[m.target] = m
-		}
-	}
+		return matches[i].end > matches[j].end
+	})
 
 	lineStarts := []int{0}
 	for i := 0; i < len(body); i++ {
@@ -107,29 +125,105 @@ func PlanAutolinks(body, self string, notes []NoteMeta, opts AutolinkOptions) []
 			lineStarts = append(lineStarts, i+1)
 		}
 	}
-	var changes []AutolinkChange
-	for ti, m := range chosen {
-		n := targets[ti]
-		link, ok := autolinkText(notes, n, body[m.start:m.end])
-		if !ok {
-			continue
-		}
-		line := sort.Search(len(lineStarts), func(i int) bool { return lineStarts[i] > m.start })
+	describe := func(c AutolinkChange) AutolinkChange {
+		line := sort.Search(len(lineStarts), func(i int) bool { return lineStarts[i] > c.Offset })
 		from := lineStarts[line-1]
 		to := len(body)
 		if line < len(lineStarts) {
 			to = lineStarts[line] - 1
 		}
-		changes = append(changes, AutolinkChange{
-			Kind:    AutolinkAdd,
-			Edits:   []AutolinkEdit{{Start: m.start, End: m.end, Text: link}},
-			Target:  n.Path,
-			Line:    line,
-			Context: strings.TrimSpace(body[from:to]),
-		})
+		c.Line = line
+		c.Context = strings.TrimSpace(body[from:to])
+		return c
 	}
-	sort.Slice(changes, func(i, j int) bool { return changes[i].Edits[0].Start < changes[j].Edits[0].Start })
+
+	// settled holds each target that has a link, or that waits for the answer
+	// to a conflict. A later reference to it does not add a second link.
+	settled := map[int]bool{}
+	var changes []AutolinkChange
+	for lo := 0; lo < len(matches); {
+		hi, reach := lo+1, matches[lo].end
+		for hi < len(matches) && matches[hi].start < reach {
+			if matches[hi].end > reach {
+				reach = matches[hi].end
+			}
+			hi++
+		}
+		group := matches[lo:hi]
+		lo = hi
+
+		var live []autolinkMatch
+		var order []int
+		seen := map[int]bool{}
+		for _, m := range group {
+			if settled[m.target] {
+				continue
+			}
+			live = append(live, m)
+			if !seen[m.target] {
+				seen[m.target] = true
+				order = append(order, m.target)
+			}
+		}
+		if len(live) == 0 {
+			continue
+		}
+
+		pick := -1
+		if len(order) == 1 {
+			pick = order[0]
+		} else {
+			offset := live[0].start
+			answer, answered := opts.Resolved[offset]
+			if answered && answer != "" && !seen[targetIndex(targets, answer)] {
+				answered = false
+			}
+			if !answered {
+				sort.Ints(order)
+				choices := make([]string, len(order))
+				for i, ti := range order {
+					choices[i] = targets[ti].Path
+					settled[ti] = true
+				}
+				changes = append(changes, describe(AutolinkChange{Kind: AutolinkConflict, Offset: offset, Choices: choices}))
+				continue
+			}
+			if answer == "" {
+				continue
+			}
+			pick = targetIndex(targets, answer)
+		}
+
+		for _, m := range live {
+			if m.target != pick {
+				continue
+			}
+			settled[pick] = true
+			n := targets[pick]
+			link, ok := autolinkText(notes, n, body[m.start:m.end])
+			if !ok {
+				break
+			}
+			changes = append(changes, describe(AutolinkChange{
+				Kind:   AutolinkAdd,
+				Edits:  []AutolinkEdit{{Start: m.start, End: m.end, Text: link}},
+				Target: n.Path,
+				Offset: m.start,
+			}))
+			break
+		}
+	}
+	sort.SliceStable(changes, func(i, j int) bool { return changes[i].Offset < changes[j].Offset })
 	return changes
+}
+
+func targetIndex(targets []NoteMeta, path string) int {
+	for i, n := range targets {
+		if n.Path == path {
+			return i
+		}
+	}
+	return -1
 }
 
 // targetMatches lists the matches of the title and the aliases of n outside
@@ -175,25 +269,6 @@ func spanMasked(mask []bool, start, end int) bool {
 	return false
 }
 
-// markAutolinkConflicts flags each match that overlaps a match of a different
-// note: the plan does not choose between them.
-func markAutolinkConflicts(matches []autolinkMatch) {
-	sort.Slice(matches, func(i, j int) bool {
-		if matches[i].start != matches[j].start {
-			return matches[i].start < matches[j].start
-		}
-		return matches[i].end > matches[j].end
-	})
-	for i := range matches {
-		for j := i + 1; j < len(matches) && matches[j].start < matches[i].end; j++ {
-			if matches[j].target != matches[i].target {
-				matches[i].conflict = true
-				matches[j].conflict = true
-			}
-		}
-	}
-}
-
 // linkedTargets lists the notes that body already links to with a wikilink that
 // has no anchor, or with a Markdown link. An embed does not count.
 func linkedTargets(body, self string, notes []NoteMeta) map[string]bool {
@@ -217,13 +292,18 @@ func linkedTargets(body, self string, notes []NoteMeta) map[string]bool {
 }
 
 // autolinkText builds the wikilink for text that refers to n. The link names
-// the note by title when that resolves to n, else by path. It reports false
-// when no form of the link resolves to n.
+// the note by title when that resolves to n and no other note has the same
+// title, else by path. It reports false when no form of the link resolves to n.
 func autolinkText(notes []NoteMeta, n NoteMeta, text string) (string, bool) {
 	if strings.ContainsAny(text, "|[]\n") {
 		return "", false
 	}
-	for _, target := range []string{n.Title, strings.TrimSuffix(n.Path, ".md")} {
+	byTitle, byPath := n.Title, strings.TrimSuffix(n.Path, ".md")
+	forms := []string{byTitle, byPath}
+	if sharesTitle(notes, n) {
+		forms = []string{byPath, byTitle}
+	}
+	for _, target := range forms {
 		if strings.ContainsAny(target, "|[]\n") {
 			continue
 		}
@@ -236,6 +316,17 @@ func autolinkText(notes []NoteMeta, n NoteMeta, text string) (string, bool) {
 		return "[[" + target + "|" + text + "]]", true
 	}
 	return "", false
+}
+
+// sharesTitle reports whether another note outside the trash has the title of
+// n.
+func sharesTitle(notes []NoteMeta, n NoteMeta) bool {
+	for _, o := range notes {
+		if o.Path != n.Path && o.Folder != FolderTrash && strings.EqualFold(strings.TrimSpace(o.Title), strings.TrimSpace(n.Title)) {
+			return true
+		}
+	}
+	return false
 }
 
 // ApplyAutolinks applies the edits of the changes that keep accepts, and
