@@ -2,6 +2,8 @@ package tui
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -217,5 +219,118 @@ func TestAutolinkAliasBacklink(t *testing.T) {
 	p.refresh(a)
 	if len(p.missing) != 0 {
 		t.Errorf("missing = %q, want none", p.missing)
+	}
+}
+
+const moveBody = "Plain x here.\n\nLater [[X|the x]] and [[X]].\n"
+
+func reviewRows(t *testing.T, a *App) []pickItem {
+	t.Helper()
+	p, ok := a.overlay.(*pickOverlay)
+	if !ok {
+		t.Fatalf("overlay = %T, want the review", a.overlay)
+	}
+	return p.items
+}
+
+func requireOldLink(t *testing.T, rows []pickItem) {
+	t.Helper()
+	for _, it := range rows {
+		if strings.HasPrefix(it.label, "move") {
+			if !strings.Contains(it.detail, "Old link: line 3  [[X|the x]] → the x") || !strings.Contains(it.detail, "Plain x here.") {
+				t.Errorf("move detail = %q, want the old link and the context", it.detail)
+			}
+			return
+		}
+	}
+	t.Fatalf("no move row in %+v", rows)
+}
+
+func TestAutolinkExMoveRowShowsTheOldLink(t *testing.T) {
+	a, _ := autolinkApp(t, map[string]string{"X.md": "# X\n", "Y.md": moveBody}, "Y.md")
+	if err := runEx(t, a, "autolink", ""); err != nil {
+		t.Fatal(err)
+	}
+	rows := reviewRows(t, a)
+	requireOldLink(t, rows)
+	for _, it := range rows {
+		if !strings.HasPrefix(it.label, "move") && strings.Contains(it.detail, "Old link") {
+			t.Errorf("row %q shows an old link, but it is not a move", it.label)
+		}
+	}
+}
+
+func TestAutolinkAllMoveRowShowsTheOldLink(t *testing.T) {
+	a, _ := linkTestApp(t, map[string]string{"X.md": "# X\n", "Y.md": moveBody})
+	if err := runEx(t, a, "autolink", "--all"); err != nil {
+		t.Fatal(err)
+	}
+	rows := reviewRows(t, a)
+	requireOldLink(t, rows)
+	for _, it := range rows {
+		if !strings.Contains(it.label, "Y.md:") {
+			t.Errorf("label %q has no note path", it.label)
+		}
+	}
+}
+
+func TestAutolinkAllDirtyBufferStopsTheRun(t *testing.T) {
+	a, root := linkTestApp(t, map[string]string{"X.md": "# X\n", "Y.md": "I read X today.\n", "Z.md": "Z reads X.\n"})
+	a.openNote("Y.md", true)
+	buf := a.activeBuffer()
+	buf.ed.ReplaceText("I read X today. More.\n")
+	err := runEx(t, a, "autolink", "--all")
+	if err == nil || !strings.Contains(err.Error(), "Y.md") || strings.Contains(err.Error(), "Z.md") {
+		t.Fatalf("error = %v, want it to name Y.md only", err)
+	}
+	if a.overlay != nil {
+		t.Errorf("overlay = %T, want none", a.overlay)
+	}
+	for name, want := range map[string]string{"Y.md": "I read X today.\n", "Z.md": "Z reads X.\n"} {
+		got, _ := os.ReadFile(filepath.Join(root, name))
+		if string(got) != want {
+			t.Errorf("%s on disk = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestAutolinkAllWritesBufferAndDisk(t *testing.T) {
+	a, root := linkTestApp(t, map[string]string{"X.md": "# X\n", "Y.md": "I read X today.\n", "Z.md": "Z reads X.\n"})
+	a.openNote("Y.md", true)
+	buf := a.activeBuffer()
+	if err := runEx(t, a, "autolink", "--all"); err != nil {
+		t.Fatal(err)
+	}
+	pressEnter(a)
+	if got, want := buf.ed.Text(), "I read [[X]] today.\n"; got != want {
+		t.Errorf("buffer = %q, want %q", got, want)
+	}
+	if buf.ed.Dirty() || buf.dirty() {
+		t.Error("the buffer of Y must be saved")
+	}
+	if got, _ := os.ReadFile(filepath.Join(root, "Y.md")); string(got) != "I read [[X]] today.\n" {
+		t.Errorf("Y on disk = %q", got)
+	}
+	if got, _ := os.ReadFile(filepath.Join(root, "Z.md")); string(got) != "Z reads [[X]].\n" {
+		t.Errorf("Z on disk = %q", got)
+	}
+	a.handleKey(vim.R('u'))
+	if got := buf.ed.Text(); got != "I read X today.\n" {
+		t.Errorf("after u, buffer = %q", got)
+	}
+}
+
+func TestAutolinkAllServerVaultGivesAnError(t *testing.T) {
+	a, root := linkTestApp(t, map[string]string{"X.md": "# X\n", "Y.md": "I read X today.\n"})
+	a.opts.Target.Kind = backend.KindRemote
+	err := runEx(t, a, "autolink", "--all")
+	if err == nil || !errors.Is(err, backend.ErrAutolinkRemote) {
+		t.Errorf("error = %v, want ErrAutolinkRemote", err)
+	}
+	if a.overlay != nil {
+		t.Errorf("overlay = %T, want none", a.overlay)
+	}
+	if got, _ := os.ReadFile(filepath.Join(root, "Y.md")); string(got) != "I read X today.\n" {
+		t.Errorf("Y on disk = %q", got)
 	}
 }
