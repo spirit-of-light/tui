@@ -1211,6 +1211,11 @@ func (sb *scopedBackend) WriteComments(ctx context.Context, rel string, comments
 	return sb.inner.WriteComments(ctx, meta.Path, comments)
 }
 
+// ListSnippetFiles is not offered: snippets are for the terminal app.
+func (sb *scopedBackend) ListSnippetFiles(context.Context) ([]vault.SnippetFile, error) {
+	return nil, errNotOffered
+}
+
 // ListTemplates is for starting a daily note the way the app would. A template
 // is not filed under any folder a scope can name and can hold anything, so a
 // client that sees only part of the vault gets none.

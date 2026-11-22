@@ -149,6 +149,10 @@ func (l *Local) ToggleTask(_ context.Context, taskID string, dialect vault.TaskD
 	return l.vault.ToggleTask(taskID, dialect)
 }
 
+func (l *Local) ListSnippetFiles(context.Context) ([]vault.SnippetFile, error) {
+	return l.vault.ListSnippetFiles()
+}
+
 func (l *Local) ListTemplates(context.Context) ([]vault.CustomTemplateFile, error) {
 	return l.vault.ListTemplates()
 }

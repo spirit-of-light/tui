@@ -323,6 +323,11 @@ func (r *Remote) ToggleTask(ctx context.Context, taskID string, dialect vault.Ta
 	return nil, nil
 }
 
+// ListSnippetFiles sends no request: the server has no snippet route.
+func (r *Remote) ListSnippetFiles(context.Context) ([]vault.SnippetFile, error) {
+	return nil, ErrSnippetsNotSupported
+}
+
 func (r *Remote) ListTemplates(ctx context.Context) ([]vault.CustomTemplateFile, error) {
 	return r.client.ListTemplates(ctx)
 }

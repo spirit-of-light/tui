@@ -2,6 +2,8 @@ package backend
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/ZenNotes/tui/internal/database"
@@ -23,6 +25,10 @@ type Description struct {
 	// AuthConfigured says whether this process holds a token at all.
 	AuthConfigured bool
 }
+
+// ErrSnippetsNotSupported says that the backend has no snippet files. A remote
+// vault gives it, because the server has no route for them.
+var ErrSnippetsNotSupported = fmt.Errorf("snippets are not available for this vault: %w", errors.ErrUnsupported)
 
 // Backend is the set of operations every command is written against.
 type Backend interface {
@@ -76,6 +82,9 @@ type Backend interface {
 	ListTemplates(ctx context.Context) ([]vault.CustomTemplateFile, error)
 	WriteTemplate(ctx context.Context, input vault.WriteTemplateInput) (vault.CustomTemplateFile, error)
 	DeleteTemplate(ctx context.Context, sourcePath string) error
+	// ListSnippetFiles gives the snippet group files of the vault, in byte
+	// order of their names. A remote vault gives ErrSnippetsNotSupported.
+	ListSnippetFiles(ctx context.Context) ([]vault.SnippetFile, error)
 	VaultSettings(ctx context.Context) (vault.VaultSettings, error)
 	UpdateVaultSettings(ctx context.Context, patch func(raw map[string]any)) error
 }
