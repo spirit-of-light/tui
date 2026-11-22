@@ -215,6 +215,9 @@ type Editor struct {
 	savedAtVer int
 	// undone says the latest change was an undo or redo, not an edit.
 	undone bool
+	// triggerOpen is true while a snippet trigger or popup keeps one change
+	// open without Vim.
+	triggerOpen bool
 
 	pending []Key
 
@@ -460,6 +463,7 @@ func (e *Editor) beginChange() {
 }
 
 func (e *Editor) commitChange() {
+	e.triggerOpen = false
 	if e.active == nil {
 		return
 	}
