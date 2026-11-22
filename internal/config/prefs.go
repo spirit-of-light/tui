@@ -68,6 +68,14 @@ type Prefs struct {
 
 	KeymapOverrides map[string]string
 
+	// TerminalKeymapOverrides holds the zn-only key overrides of
+	// [terminal.keymaps], by action id. An empty list unbinds the action.
+	// TerminalKeymapProblems lists the entries that zn ignored, sorted, each
+	// with its reason. Neither field goes back to the file through
+	// SaveChanges.
+	TerminalKeymapOverrides map[string][]string
+	TerminalKeymapProblems  []string
+
 	// Terminal-only preferences, from [terminal] in config.toml. The desktop
 	// app ignores the table.
 	TerminalMouse bool
@@ -144,6 +152,7 @@ func DefaultPrefs() Prefs {
 		SystemFolderLabels:       map[string]string{},
 		AtlasEnabled:             true,
 		KeymapOverrides:          map[string]string{},
+		TerminalKeymapOverrides:  map[string][]string{},
 	}
 }
 
@@ -264,6 +273,7 @@ func applyPrefs(p *Prefs, doc map[string]any) {
 	}
 	setInt(terminal, "render_timeout", &p.RenderTimeout)
 	setInt(terminal, "render_concurrency", &p.RenderConcurrency)
+	p.TerminalKeymapOverrides, p.TerminalKeymapProblems = readTerminalKeymaps(terminal["keymaps"])
 	if strings.TrimSpace(p.PreviewStyle) == "" {
 		p.PreviewStyle = "auto"
 	}
