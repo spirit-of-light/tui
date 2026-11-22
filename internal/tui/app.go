@@ -93,6 +93,7 @@ type App struct {
 	panes          *paneNode
 	activePane     *pane
 	focus          focusTarget
+	snippetOwner   snippetOwner
 
 	sidebar         *sidebarState
 	sidebarOpen     bool
