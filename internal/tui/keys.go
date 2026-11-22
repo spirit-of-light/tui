@@ -2,10 +2,10 @@ package tui
 
 import (
 	"strings"
-	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/ZenNotes/tui/internal/keymaps"
 	"github.com/ZenNotes/tui/internal/vim"
 )
 
@@ -102,72 +102,11 @@ func keyFromTea(msg tea.KeyMsg) vim.Key {
 }
 
 // bindingKeys parses a catalog binding like `Alt+H`, `Ctrl+P`, `g t`,
-// `Space`, `Alt+ArrowLeft` into a key sequence.
+// `Space`, `Alt+ArrowLeft` into a key sequence. A binding that zn cannot
+// read gives nil.
 func bindingKeys(binding string) []vim.Key {
-	binding = strings.TrimSpace(binding)
-	if binding == "" {
-		return nil
-	}
-	out := []vim.Key{}
-	for _, chord := range strings.Fields(binding) {
-		parts := strings.Split(chord, "+")
-		k := vim.Key{}
-		base := parts[len(parts)-1]
-		for _, mod := range parts[:len(parts)-1] {
-			switch strings.ToLower(mod) {
-			case "ctrl", "mod":
-				k.Ctrl = true
-			case "alt", "option", "meta":
-				k.Alt = true
-			case "shift":
-				k.Shift = true
-			}
-		}
-		switch strings.ToLower(base) {
-		case "space":
-			k.Rune = ' '
-		case "enter", "return":
-			k.Name = "enter"
-		case "esc", "escape":
-			k.Name = "esc"
-		case "tab":
-			k.Name = "tab"
-		case "arrowleft", "left":
-			k.Name = "left"
-		case "arrowright", "right":
-			k.Name = "right"
-		case "arrowup", "up":
-			k.Name = "up"
-		case "arrowdown", "down":
-			k.Name = "down"
-		case "backspace":
-			k.Name = "backspace"
-		case "delete":
-			k.Name = "delete"
-		default:
-			r := []rune(base)
-			if len(r) != 1 {
-				return nil
-			}
-			if k.Ctrl || k.Alt {
-				k.Rune = unicode.ToLower(r[0])
-				if k.Shift && !k.Ctrl {
-					k.Rune = unicode.ToUpper(r[0])
-				}
-				if k.Ctrl {
-					k.Shift = false
-				}
-			} else {
-				k.Rune = r[0]
-				if k.Shift {
-					k.Rune = unicode.ToUpper(r[0])
-					k.Shift = false
-				}
-			}
-		}
-		out = append(out, k)
-	}
-	return out
+	keys, _ := keymaps.ParseKeys(binding)
+	return keys
 }
 
 // sameKey compares keys ignoring the shift flag on printable runes.
