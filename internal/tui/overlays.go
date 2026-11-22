@@ -141,7 +141,10 @@ type paletteItem struct {
 	detail string
 	hint   string
 	id     string
-	data   any
+	// section names a group. The palette draws a header row where the
+	// section changes. An empty section has no header.
+	section string
+	data    any
 }
 
 type palette struct {
@@ -210,6 +213,21 @@ func (p *palette) refilter(a *App) {
 	if p.cursor >= len(p.filtered) {
 		p.cursor = max(0, len(p.filtered)-1)
 	}
+}
+
+// groupSections keeps the items of one section together after a filter, in
+// the order in which the sections first appear in p.items.
+func (p *palette) groupSections() {
+	rank := map[string]int{}
+	for _, it := range p.items {
+		if _, ok := rank[it.section]; !ok {
+			rank[it.section] = len(rank)
+		}
+	}
+	if len(rank) < 2 {
+		return
+	}
+	sort.SliceStable(p.filtered, func(i, j int) bool { return rank[p.filtered[i].section] < rank[p.filtered[j].section] })
 }
 
 func (p *palette) handleKey(a *App, k vim.Key) {
@@ -286,6 +304,17 @@ func (p *palette) render(a *App, w, h int) string {
 	width := min(w-4, max(40, w*2/3))
 	inner := width - 2
 	rows := min(len(p.filtered), max(3, h-10))
+	sectioned := false
+	for _, it := range p.filtered {
+		if it.section != "" {
+			sectioned = true
+			break
+		}
+	}
+	if sectioned {
+		// Header rows take lines, so show fewer items.
+		rows = max(3, rows-2)
+	}
 	if p.cursor < p.scroll {
 		p.scroll = p.cursor
 	}
@@ -311,6 +340,9 @@ func (p *palette) render(a *App, w, h int) string {
 	}
 	for i := p.scroll; i < p.scroll+rows && i < len(p.filtered); i++ {
 		it := p.filtered[i]
+		if it.section != "" && (i == p.scroll || p.filtered[i-1].section != it.section) {
+			lines = append(lines, th.Muted.Render(padRight(truncateCells(it.section, inner), inner)))
+		}
 		label := it.label
 		hint := it.hint
 		avail := inner - 2

@@ -11,6 +11,7 @@ import (
 
 	"github.com/ZenNotes/tui/internal/config"
 	"github.com/ZenNotes/tui/internal/database"
+	"github.com/ZenNotes/tui/internal/keymaps"
 	"github.com/ZenNotes/tui/internal/periodic"
 	"github.com/ZenNotes/tui/internal/search"
 	"github.com/ZenNotes/tui/internal/themes"
@@ -788,6 +789,9 @@ func (a *App) completeEx(text string) (string, []string) {
 		for _, e := range a.keymap.Entries() {
 			cands = append(cands, e.ID)
 		}
+		for _, e := range keymaps.TerminalCatalog {
+			cands = append(cands, e.ID)
+		}
 	case "mouse":
 		cands = []string{"on", "off"}
 	case "tasks":
@@ -909,13 +913,32 @@ func (a *App) openKeymapList() {
 		}
 		items = append(items, paletteItem{label: e.Title, detail: e.ID, hint: binding, id: e.ID})
 	}
+	if a.terminalKeys == nil {
+		a.terminalKeys = keymaps.NewTerminalResolver(nil)
+	}
+	for _, e := range a.terminalKeys.Entries() {
+		items = append(items, paletteItem{label: e.Title, detail: e.ID + " · zn only", hint: terminalKeyHint(e.Bindings), id: e.ID, section: "Terminal"})
+	}
 	a.overlay = &palette{title: "Keymap actions · Enter changes a binding", placeholder: "Action", items: items, filtered: items, onSelect: func(a *App, it paletteItem) {
-		a.promptFor("Binding · "+it.id, a.keymap.Binding(it.id), "Empty disables this action; use terminal keys, e.g. ctrl+n", func(a *App, s string) {
+		initial, help := a.keymap.Binding(it.id), "Empty disables this action; use terminal keys, e.g. ctrl+n"
+		if isTerminalAction(it.id) {
+			initial = strings.Join(a.terminalKeys.Bindings(it.id), ", ")
+			help = "Empty disables this action; separate keys with a comma, e.g. Alt+N, Tab"
+		}
+		a.promptFor("Binding · "+it.id, initial, help, func(a *App, s string) {
 			if err := a.saveKeymap(it.id, s); err != nil {
 				a.notifyError(err.Error())
 			}
 		})
 	}}
+}
+
+// terminalKeyHint is the key list of a zn-only action for the keymap list.
+func terminalKeyHint(keys []string) string {
+	if len(keys) == 0 {
+		return "(unbound)"
+	}
+	return strings.Join(keys, ", ")
 }
 
 // --- command helpers ---
