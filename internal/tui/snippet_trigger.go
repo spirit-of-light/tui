@@ -44,6 +44,10 @@ func (a *App) snippetTriggerKey(buf *noteBuffer, k vim.Key) bool {
 		return false
 	}
 	matches := a.snippetIndex.Match(prefix)
+	if len(matches) >= 2 {
+		a.openSnippetPopup(buf, prefix, matches)
+		return true
+	}
 	if len(matches) != 1 {
 		return false
 	}

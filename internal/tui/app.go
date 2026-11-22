@@ -127,6 +127,8 @@ type App struct {
 	// it was closed on; insertCtrlX a pending Ctrl-X in insert mode.
 	tagMenu      *tagMenu
 	tagDismissed *tagDismissal
+	// snippetPopup is the list of snippet triggers under the cursor.
+	snippetPopup *snippetPopup
 	insertCtrlX  bool
 
 	jumps      []jumpEntry
