@@ -30,8 +30,23 @@ type snippetSession struct {
 
 // ExpandSnippet inserts the expansion of body at the cursor and goes to
 // insert mode. The vars function gives the values of the template
-// variables. A session starts when the body has a tabstop to visit.
+// variables. A session starts when the body has a tabstop to visit. When a
+// session already runs, the new session goes on top of it, and the older
+// session is active again when the new one ends.
 func (e *Editor) ExpandSnippet(body string, vars snippet.Resolver) {
+	if e.mode != ModeInsert && e.mode != ModeReplace {
+		e.startInsert(e.cursor)
+	} else {
+		e.beginChange()
+	}
+	// The expansion adds text, so an unchanged placeholder goes first, as it
+	// does for a typed key.
+	if outer := e.topSession(); outer != nil {
+		if st := &outer.stops[outer.cur]; st.unchanged && e.cursorInStop(st) {
+			e.deleteSnippetPlaceholder(outer)
+		}
+	}
+
 	line := e.buf.Line(e.cursor.Line)
 	res := snippet.Expand(body, snippet.Options{
 		Indent:   string(leadingWhitespace(line)),
@@ -39,14 +54,13 @@ func (e *Editor) ExpandSnippet(body string, vars snippet.Resolver) {
 		Resolver: vars,
 	})
 
-	if e.mode != ModeInsert && e.mode != ModeReplace {
-		e.startInsert(e.cursor)
-	} else {
-		e.beginChange()
-	}
 	start := e.buf.clampInsert(e.cursor)
+	owners := e.snippetOwners()
 	end := e.buf.InsertText(start, res.Text)
 	e.desiredCol = -1
+	// The running sessions grow by the new text. The new session has its own
+	// final ranges, so it joins the stack after this step.
+	e.shiftSnippets(textEdit{a: start, b: start, c: end}, owners)
 
 	runes := []rune(res.Text)
 	at := func(off int) Pos {
@@ -95,10 +109,12 @@ func (e *Editor) ExpandSnippet(body string, vars snippet.Resolver) {
 	}
 	e.cursor = e.buf.clampInsert(target)
 
-	e.sessions = nil
 	if numbered > 0 || finals > 1 {
-		e.sessions = []*snippetSession{s}
+		e.sessions = append(e.sessions, s)
 	}
+	// Text that goes into a tabstop with copies reaches the copies as plain
+	// text. The new session has ranges only where the expansion happened.
+	e.mirrorSnippets(owners)
 }
 
 // SnippetActive reports whether a snippet session is running.
