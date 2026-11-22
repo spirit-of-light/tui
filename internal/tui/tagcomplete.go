@@ -378,21 +378,37 @@ func (a *App) acceptTag(buf *noteBuffer, m *tagMenu) {
 	}
 }
 
-// tagMenuAnchor is the screen cell of the token's first rune, so the menu
-// stays put while the token grows.
-func (a *App) tagMenuAnchor(buf *noteBuffer, m *tagMenu) (x, y int, ok bool) {
+// anchorAt is the screen cell of the rune at a column of a buffer line, so a
+// box stays put while the text before the cursor grows. It is false when the
+// column is not on screen.
+func (a *App) anchorAt(buf *noteBuffer, lineNo, col int) (x, y int, ok bool) {
 	rc := a.contentRect(a.activePane)
-	line := buf.ed.LineRunes(m.tok.line)
+	line := buf.ed.LineRunes(lineNo)
 	for _, row := range buf.rows {
-		if row.line != m.tok.line || m.tok.start < row.segStart || m.tok.start > row.segEnd {
+		if row.line != lineNo || col < row.segStart || col > row.segEnd {
 			continue
 		}
-		if m.tok.start == row.segEnd && row.segEnd < len(line) {
-			continue // the token starts the next wrapped row
+		if col == row.segEnd && row.segEnd < len(line) {
+			continue // the column starts the next wrapped row
 		}
-		return rc.x + row.x + cellWidth(string(line[row.segStart:m.tok.start])), rc.y + row.y, true
+		return rc.x + row.x + cellWidth(string(line[row.segStart:col])), rc.y + row.y, true
 	}
 	return 0, 0, false
+}
+
+// paintBoxAt draws a box under the cell (x, y) of the text it completes, or
+// above that cell near the bottom of the screen.
+func (a *App) paintBoxAt(screen, block string, x, y int) string {
+	h := strings.Count(block, "\n") + 1
+	// The box's border and padding sit left of the text, so the rows line
+	// up with the text being typed.
+	x = max(0, x-2)
+	top := y + 1
+	if top+h > a.height-2 {
+		top = max(0, y-h)
+	}
+	screen, _ = overlayPlaceAt(screen, block, x, top, a.width, a.height)
+	return screen
 }
 
 // paintTagMenu draws the menu under the token, or above it near the bottom
@@ -402,21 +418,11 @@ func (a *App) paintTagMenu(screen string) string {
 	if m == nil {
 		return screen
 	}
-	x, y, ok := a.tagMenuAnchor(a.activeBuffer(), m)
+	x, y, ok := a.anchorAt(a.activeBuffer(), m.tok.line, m.tok.start)
 	if !ok {
 		return screen
 	}
-	block := m.render(a)
-	h := strings.Count(block, "\n") + 1
-	// The box's border and padding sit left of the text, so the tags line
-	// up with the token being typed.
-	x = max(0, x-2)
-	top := y + 1
-	if top+h > a.height-2 {
-		top = max(0, y-h)
-	}
-	screen, _ = overlayPlaceAt(screen, block, x, top, a.width, a.height)
-	return screen
+	return a.paintBoxAt(screen, m.render(a), x, y)
 }
 
 func (m *tagMenu) render(a *App) string {

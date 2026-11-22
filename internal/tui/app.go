@@ -786,7 +786,7 @@ func (a *App) View() string {
 	} else if a.leader != nil && a.leader.showHints {
 		screen = overlayOn(screen, a.renderWhichKey(), a.width, a.height)
 	} else {
-		screen = a.paintTagMenu(screen)
+		screen = a.paintSnippetPopup(a.paintTagMenu(screen))
 	}
 	if len(a.toasts) > 0 {
 		screen = a.renderToasts(screen)

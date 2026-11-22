@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"fmt"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/ZenNotes/tui/internal/snippet"
@@ -25,6 +27,8 @@ type snippetPopup struct {
 	start int
 	items []snippetCandidate
 	sel   int
+	// scroll is the index of the first row in view.
+	scroll int
 	// shown is the number of runes of the selected text in the buffer.
 	shown int
 	// at is where the cursor stood after the last change of the popup. A
@@ -146,4 +150,81 @@ func (a *App) acceptSnippetPopup(buf *noteBuffer, p *snippetPopup) {
 	buf.ed.ExpandSnippetOver(p.shown, it.snip.Body, a.snippetVars(buf))
 	a.recordSnippetOwner(buf)
 	a.refreshTagMenu(buf)
+}
+
+// snippetPopupRows is the most rows that the popup shows at one time.
+const snippetPopupRows = 10
+
+// paintSnippetPopup draws the popup under the typed text, or above it near the
+// bottom of the screen, in the same place and with the same look as the tag
+// menu.
+func (a *App) paintSnippetPopup(screen string) string {
+	p := a.liveSnippetPopup()
+	if p == nil {
+		return screen
+	}
+	x, y, ok := a.anchorAt(p.buf, p.at.Line, p.start)
+	if !ok {
+		return screen
+	}
+	return a.paintBoxAt(screen, p.render(a), x, y)
+}
+
+// render draws the rows of the popup. A trigger row has the trigger, the
+// description and the group. A word row has the word and the label "word".
+func (p *snippetPopup) render(a *App) string {
+	th := a.theme
+	rows := min(len(p.items), snippetPopupRows)
+	if p.sel < p.scroll {
+		p.scroll = p.sel
+	}
+	if p.sel >= p.scroll+rows {
+		p.scroll = p.sel - rows + 1
+	}
+	const gap = 2
+	labelW, descW, groupW := 0, 0, 0
+	for _, it := range p.items {
+		labelW = max(labelW, cellWidth(it.text))
+		group := "word"
+		if it.snip != nil {
+			descW = max(descW, cellWidth(it.snip.Description))
+			group = it.snip.Group
+		}
+		groupW = max(groupW, cellWidth(group))
+	}
+	maxInner := max(24, a.width-12)
+	labelW = min(labelW, max(8, maxInner/3))
+	groupW = min(groupW, max(8, maxInner/3))
+	descW = min(descW, max(0, maxInner-labelW-groupW-2*gap))
+	inner := labelW + gap + groupW
+	if descW > 0 {
+		inner += gap + descW
+	}
+	lines := make([]string, 0, rows+1)
+	for i := p.scroll; i < p.scroll+rows; i++ {
+		it := p.items[i]
+		group, desc := "word", ""
+		if it.snip != nil {
+			group, desc = it.snip.Group, it.snip.Description
+		}
+		label := padRight(truncateCells(it.text, labelW), labelW)
+		rest := ""
+		if descW > 0 {
+			rest += strings.Repeat(" ", gap) + padRight(truncateCells(desc, descW), descW)
+		}
+		rest += strings.Repeat(" ", gap) + padRight(truncateCells(group, groupW), groupW)
+		if i == p.sel {
+			lines = append(lines, th.SelectedFocus.Render(label+rest))
+			continue
+		}
+		if p.prefix != "" {
+			label = padRight(highlightMatch(th, truncateCells(it.text, labelW), p.prefix), labelW)
+		}
+		lines = append(lines, th.Tag.Render(label)+th.Muted.Render(rest))
+	}
+	if len(p.items) > rows {
+		count := fmt.Sprintf("%d of %d", p.sel+1, len(p.items))
+		lines = append(lines, th.Muted.Render(padRight(count, max(inner, cellWidth(count)))))
+	}
+	return th.Overlay.Render(strings.Join(lines, "\n"))
 }
