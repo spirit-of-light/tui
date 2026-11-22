@@ -25,6 +25,21 @@ func snippetHelpRow(a *App, id, desc string) string {
 	return id + ": " + shown + "\t" + desc
 }
 
+// snippetExpandHelpRow is the help row of the expand action. It shows the
+// mode labels of the default keys, or the plain keys of an override.
+func snippetExpandHelpRow(a *App, desc string) string {
+	const id = "snippet.expand"
+	labels := keymaps.NewTerminalResolver(nil).Labels(id)
+	if a.terminalKeys != nil {
+		labels = a.terminalKeys.Labels(id)
+	}
+	shown := "(unbound)"
+	if len(labels) > 0 {
+		shown = strings.Join(labels, " / ")
+	}
+	return id + ": " + shown + "\t" + desc
+}
+
 // helpLines is the in-app manual: `# ` and `## ` headings, `key<TAB>desc`
 // rows, plain prose. A filter keeps sections with a matching line.
 func helpLines(a *App, filter string) []string {
@@ -108,6 +123,11 @@ func helpLines(a *App, filter string) []string {
 		"",
 		"## Editor: Markdown",
 		"Ctrl+L\tOutside a snippet session, toggle the checkbox on the line (also in insert mode)",
+		snippetExpandHelpRow(a, "In insert mode, after a part of a snippet trigger, expand the snippet. If two or more triggers match, a list opens. If no trigger matches, the key has its usual function."),
+		"Ctrl+N / Tab in the snippet list\tSelect the next item. The item shows in the text.",
+		"Ctrl+P / Shift+Tab in the snippet list\tSelect the previous item.",
+		"Enter / Ctrl+Y in the snippet list\tUse the selected item. A snippet expands. A word stays as text.",
+		"Ctrl+E in the snippet list\tClose the list and put back the text that you typed.",
 		snippetHelpRow(a, "snippet.nextTabstop", "In a snippet session, go to the next tabstop. At the final tabstop ($0), the session stops, if $0 has no copies."),
 		snippetHelpRow(a, "snippet.prevTabstop", "In a snippet session, go to the previous tabstop. Some terminals send Ctrl+H for Backspace. Use Shift+Tab in these terminals."),
 		"gd\tFollow the link under the cursor (wikilink, Markdown link or URL); missing notes are created on confirm",

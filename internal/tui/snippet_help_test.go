@@ -46,3 +46,31 @@ func TestHelpSnippetKeysOverride(t *testing.T) {
 		t.Errorf("previous key part when unbound: %q", key)
 	}
 }
+
+func TestHelpSnippetExpandDefaults(t *testing.T) {
+	a, _ := snippetKeyApp(t, vimPrefs(), "", "$1 $2")
+	row := helpRow(t, a, "snippet.expand")
+	key, _, _ := strings.Cut(row, "\t")
+	for _, want := range []string{"Ctrl+N (Vim)", "Tab (no Vim)"} {
+		if !strings.Contains(key, want) {
+			t.Errorf("expand key part %q lacks %q", key, want)
+		}
+	}
+	for _, id := range []string{
+		"Ctrl+N / Tab in the snippet list",
+		"Ctrl+P / Shift+Tab in the snippet list",
+		"Enter / Ctrl+Y in the snippet list",
+		"Ctrl+E in the snippet list",
+	} {
+		helpRow(t, a, id)
+	}
+}
+
+func TestHelpSnippetExpandOverride(t *testing.T) {
+	p := overridePrefs(t, true, "[terminal.keymaps]\n\"snippet.expand\" = \"Alt+S\"\n")
+	a, _ := snippetKeyApp(t, p, "", "$1 $2")
+	key, _, _ := strings.Cut(helpRow(t, a, "snippet.expand"), "\t")
+	if !strings.Contains(key, "Alt+S") || strings.Contains(key, "Ctrl+N") || strings.Contains(key, "Tab") {
+		t.Errorf("expand key part after override: %q", key)
+	}
+}
