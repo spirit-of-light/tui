@@ -95,6 +95,11 @@ type VaultSettings struct {
 	// and text search; see template_folder.go.
 	TemplateFolder      string
 	TypstPreambleFolder string
+	// FlashcardsObject is true when vault.json has a flashcards object, on or
+	// off. FlashcardsEnabled is true only when its enabled value is the JSON
+	// value true.
+	FlashcardsObject  bool
+	FlashcardsEnabled bool
 	// Raw is the decoded file, kept so a targeted write can preserve every
 	// key this process does not model.
 	Raw map[string]any
@@ -196,6 +201,10 @@ func normalizeVaultSettings(raw map[string]any) VaultSettings {
 		s.TasksIncludedFolders = NormalizeTasksExcludedFolders(stringsOf(tasks["includedFolders"]))
 	}
 	s.TemplateFolder = templateFolderOf(raw)
+	if cards := mapOf(raw["flashcards"]); cards != nil {
+		s.FlashcardsObject = true
+		s.FlashcardsEnabled = boolOf(cards["enabled"])
+	}
 	if typst := mapOf(raw["typstPreambles"]); typst != nil {
 		if folder := normalizeTypstPreambleFolder(stringOf(typst["folder"])); folder != "" {
 			s.TypstPreambleFolder = folder
